@@ -1341,11 +1341,11 @@ export class UIManager {
       selectedCfg.id === 'stage_01' || prog.unlockAllSandbox || selectedSave.unlocked;
 
     const chartNodes: Array<{ id: StageId; x: number; y: number; color: string }> = [
-      { id: 'stage_01', x: 45, y: 28, color: '#4ADE80' },
-      { id: 'stage_02', x: 155, y: 14, color: '#C084FC' },
-      { id: 'stage_03', x: 260, y: 38, color: '#38BDF8' },
-      { id: 'stage_04', x: 365, y: 16, color: '#F59E0B' },
-      { id: 'endless', x: 460, y: 30, color: '#FB7185' },
+      { id: 'stage_01', x: 54, y: 84, color: '#4ADE80' },
+      { id: 'stage_02', x: 162, y: 36, color: '#C084FC' },
+      { id: 'stage_03', x: 272, y: 88, color: '#38BDF8' },
+      { id: 'stage_04', x: 382, y: 34, color: '#F59E0B' },
+      { id: 'endless', x: 486, y: 66, color: '#FB7185' },
     ];
     const isStageOpen = (sid: StageId): boolean =>
       sid === 'stage_01' || prog.unlockAllSandbox || prog.stages[sid].unlocked;
@@ -1356,7 +1356,7 @@ export class UIManager {
         const toPt = chartNodes[i + 1];
         const open = isStageOpen(toPt.id);
         return open
-          ? `<line x1="${fromPt.x}" y1="${fromPt.y}" x2="${toPt.x}" y2="${toPt.y}" stroke="#38BDF8" stroke-width="2.8" opacity="0.92" />`
+          ? `<line x1="${fromPt.x}" y1="${fromPt.y}" x2="${toPt.x}" y2="${toPt.y}" class="hyperlane-flow" stroke="#7DD3FC" stroke-width="2.6" stroke-dasharray="7 5" opacity="0.95" />`
           : `<line x1="${fromPt.x}" y1="${fromPt.y}" x2="${toPt.x}" y2="${toPt.y}" stroke="#475569" stroke-width="2.2" stroke-dasharray="6 5" opacity="0.6" />`;
       })
       .join('');
@@ -1368,7 +1368,7 @@ export class UIManager {
           pt.id === selectedCfg.id
             ? `<circle cx="${pt.x}" cy="${pt.y}" r="9.5" fill="none" stroke="#FDE047" stroke-width="2.2" />`
             : '';
-        return `${selRing}<circle cx="${pt.x}" cy="${pt.y}" r="${pt.id === 'endless' ? 6 : 5}" fill="${open ? pt.color : '#64748B'}" stroke="#1A1033" stroke-width="1.5" />`;
+        return `<g class="svg-stage-node" data-stage-id="${pt.id}">${selRing}<circle cx="${pt.x}" cy="${pt.y}" r="${pt.id === 'endless' ? 11 : 9.5}" fill="${open ? pt.color : '#64748B'}" opacity="0.22" /><circle cx="${pt.x}" cy="${pt.y}" r="${pt.id === 'endless' ? 7.2 : 6.2}" fill="${open ? pt.color : '#64748B'}" stroke="#1A1033" stroke-width="1.8" /><circle cx="${pt.x - 1.8}" cy="${pt.y - 1.8}" r="1.8" fill="#FFFFFF" opacity="0.65" /></g>`;
       })
       .join('');
 
@@ -1449,7 +1449,7 @@ export class UIManager {
 
         <div class="hub-campaign-grid">
           <div class="star-chart-box">
-            <svg class="constellation-svg" viewBox="0 0 500 56" preserveAspectRatio="none" aria-hidden="true">
+            <svg class="constellation-svg" viewBox="0 0 540 120" preserveAspectRatio="xMidYMid meet" role="img" aria-label="星区战略星图"><defs><radialGradient id="nebA" cx="28%" cy="40%" r="58%"><stop offset="0%" stop-color="#38BDF8" stop-opacity="0.22"/><stop offset="100%" stop-color="#0F172A" stop-opacity="0"/></radialGradient><radialGradient id="nebB" cx="86%" cy="54%" r="42%"><stop offset="0%" stop-color="#FB7185" stop-opacity="0.24"/><stop offset="100%" stop-color="#0F172A" stop-opacity="0"/></radialGradient></defs><rect width="540" height="120" rx="10" fill="#0D1326"/><rect width="540" height="120" rx="10" fill="url(#nebA)"/><rect width="540" height="120" rx="10" fill="url(#nebB)"/><circle cx="-16" cy="62" r="50" fill="#1E293B" stroke="#38BDF8" stroke-opacity="0.35"/><ellipse cx="270" cy="62" rx="224" ry="44" fill="none" stroke="#334155" stroke-dasharray="4 6" opacity="0.5"/><circle cx="486" cy="66" r="20" fill="none" stroke="#FB7185" stroke-dasharray="3 4" opacity="0.5"/>
               ${svgSegmentsHtml}
               ${svgCirclesHtml}
             </svg>

@@ -4,15 +4,14 @@ import path from 'node:path';
 import { chromium } from 'playwright-core';
 
 const BASE_URL = process.env.GAME_URL || 'http://127.0.0.1:5173';
-const SHOT_DIR =
-  '/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p/f6fabcef-a753-4205-80c4-c51780e14bd7/scratch/lunar_shots';
+const SHOT_DIR = process.env.SHOT_DIR || '/tmp/lunar_shots';
 
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 
 async function runSuite() {
   console.log('Launching Chromium with WebGL SwiftShader...');
   const browser = await chromium.launch({
-    executablePath: '/usr/bin/chromium',
+    executablePath: ['/usr/bin/chromium', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable'].find((p) => fs.existsSync(p)),
     headless: true,
     args: [
       '--use-gl=angle',

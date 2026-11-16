@@ -9,6 +9,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const tempOutDir = '/tmp/lunar_iife_dist';
 const pubFavicon = path.join(projectRoot, 'public/favicon.svg');
 const distOutHtml = path.join(projectRoot, 'dist/starforge_ark_cradle.html');
+const rootOutHtml = path.join(projectRoot, 'starforge_ark_cradle.html');
 
 const brainDir =
   '/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p/f6fabcef-a753-4205-80c4-c51780e14bd7';
@@ -92,6 +93,7 @@ assert.ok(
 
 fs.mkdirSync(path.dirname(distOutHtml), { recursive: true });
 fs.writeFileSync(distOutHtml, html, 'utf8');
+fs.writeFileSync(rootOutHtml, html, 'utf8');
 console.log(
   `Bundled IIFE standalone HTML -> ${distOutHtml} (${(html.length / 1024).toFixed(1)} KB)`
 );

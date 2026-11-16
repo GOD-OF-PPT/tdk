@@ -1437,6 +1437,17 @@ export function buildLunarStationEnvironment(
     })
   );
   vfxRoot.add(stars);
+  const earthGroup = new THREE.Group();
+  earthGroup.position.set(-19, 21, -56);
+  earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(5.5, 28, 20), new THREE.MeshBasicMaterial({ color: 0x0b1933, fog: false })));
+  const earthLit = new THREE.Mesh(new THREE.SphereGeometry(5.55, 28, 20, -1.3, 2.95, 0.18, 2.55), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72, fog: false }));
+  earthLit.rotation.z = -0.32;
+  earthGroup.add(earthLit);
+  earthGroup.add(new THREE.Mesh(new THREE.PlaneGeometry(18, 18), new THREE.MeshBasicMaterial({ map: tex.softGlow, color: 0x38bdf8, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })));
+  const orbArc = new THREE.Mesh(new THREE.RingGeometry(8.1, 8.38, 56), new THREE.MeshBasicMaterial({ color: 0x7dd3fc, side: THREE.DoubleSide, transparent: true, opacity: 0.24, depthWrite: false, fog: false }));
+  orbArc.rotation.set(1.18, 0.28, -0.22);
+  earthGroup.add(orbArc);
+  vfxRoot.add(earthGroup);
 
   // 7. Tactical Attack Range Ring & Selection Ring (under vfxRoot -> zero outline!)
   const rangeRing = new THREE.Mesh(

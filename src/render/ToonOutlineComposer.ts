@@ -289,6 +289,7 @@ export class ToonOutlineComposer {
       toneMapped: true,
       uniforms: {
         tDiffuse: { value: this.msaaSceneRT.texture },
+        uResolution: { value: new THREE.Vector2(this.ssWidth, this.ssHeight) },
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -299,10 +300,16 @@ export class ToonOutlineComposer {
       `,
       fragmentShader: /* glsl */ `
         uniform sampler2D tDiffuse;
+        uniform vec2 uResolution;
         varying vec2 vUv;
+        vec3 extractHalo(vec3 c){ float p=max(c.r,max(c.g,c.b)); return min(c*smoothstep(0.88,1.45,p),vec3(3.0)); }
         void main() {
+          vec2 ts = 1.0 / uResolution;
           vec4 texel = texture2D(tDiffuse, vUv);
-          gl_FragColor = vec4(texel.rgb, 1.0);
+          vec3 bl = (extractHalo(texture2D(tDiffuse,vUv+vec2(2.6,0.0)*ts).rgb)+extractHalo(texture2D(tDiffuse,vUv+vec2(-2.6,0.0)*ts).rgb)+extractHalo(texture2D(tDiffuse,vUv+vec2(0.0,2.6)*ts).rgb)+extractHalo(texture2D(tDiffuse,vUv+vec2(0.0,-2.6)*ts).rgb))*0.16 + (extractHalo(texture2D(tDiffuse,vUv+vec2(4.2,4.2)*ts).rgb)+extractHalo(texture2D(tDiffuse,vUv+vec2(-4.2,4.2)*ts).rgb)+extractHalo(texture2D(tDiffuse,vUv+vec2(4.2,-4.2)*ts).rgb)+extractHalo(texture2D(tDiffuse,vUv+vec2(-4.2,-4.2)*ts).rgb))*0.09;
+          vec2 cv = (vUv - 0.5) * vec2(1.08, 0.96);
+          float vig = clamp(1.015 - 0.075 * dot(cv, cv), 0.93, 1.015);
+          gl_FragColor = vec4(texel.rgb * vig + bl * 0.25, 1.0);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }
@@ -483,6 +490,7 @@ export class ToonOutlineComposer {
     this.normalDepthRT.setSize(w, h);
     this.msaaSceneRT.setSize(w, h);
     (this.outlineMaterial.uniforms.uResolution.value as THREE.Vector2).set(w, h);
+    (this.blitMaterial.uniforms.uResolution.value as THREE.Vector2).set(w, h);
   }
 
   public getSupersampledSize(): { width: number; height: number } {

@@ -103,6 +103,7 @@ function makeLunarDeckTexture(): THREE.CanvasTexture {
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(6.5, 4.2);
+  tex.anisotropy = 8;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -160,6 +161,7 @@ function makeHaulRoadTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.anisotropy = 8;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -237,9 +239,9 @@ export function getToonTextures(): SharedToonTextures {
   if (!cachedTextures) {
     cachedTextures = {
       // 4-step soft toy-enamel cel ramp (shadow -> mid-dark -> lit -> crisp bevel highlight)
-      grad4Standard: createSteppedGradientTexture([102, 158, 222, 255]),
+      grad4Standard: createSteppedGradientTexture([88, 128, 172, 212, 240, 255]),
       // 4-step non-mirror brushed industrial metal cel ramp (distinct dark/light steps + crisp top band)
-      grad4Metal: createSteppedGradientTexture([78, 136, 198, 255]),
+      grad4Metal: createSteppedGradientTexture([64, 108, 154, 202, 236, 255]),
       lunarDeck: makeLunarDeckTexture(),
       haulRoad: makeHaulRoadTexture(),
       softGlow: makeSoftGlowTexture(),
@@ -278,13 +280,14 @@ export function makeToonMaterial(colorHex: number, opts: ToonMatOptions = {}): T
     opacity: opts.opacity ?? 1,
   });
 
-  if (opts.rimColor !== undefined || (opts.rimStrength && opts.rimStrength > 0)) {
-    const rimUniform = { value: new THREE.Color(opts.rimColor ?? 0x7dd3fc) };
-    const strengthUniform = { value: opts.rimStrength ?? 0.34 };
+  if (true) {
+    const hasRim = opts.rimColor !== undefined || Boolean(opts.rimStrength && opts.rimStrength > 0);
+    const rimUniform = { value: new THREE.Color(opts.rimColor ?? 0x67e8f9) };
+    const strengthUniform = { value: hasRim ? (opts.rimStrength ?? 0.34) : 0.09 };
     mat.userData.rimColorUniform = rimUniform;
     mat.userData.rimStrengthUniform = strengthUniform;
 
-    mat.customProgramCacheKey = () => 'toon-tier-rim-v1';
+    mat.customProgramCacheKey = () => 'toon-tier-rim-v2';
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uTierRimColor = rimUniform;
       shader.uniforms.uTierRimStrength = strengthUniform;
@@ -297,8 +300,10 @@ export function makeToonMaterial(colorHex: number, opts: ToonMatOptions = {}): T
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
         `float rimNdotV = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
-        float steppedRim = smoothstep(0.66, 0.86, 1.0 - rimNdotV);
-        outgoingLight += uTierRimColor * steppedRim * uTierRimStrength;
+        float steppedRim = smoothstep(0.60, 0.84, 1.0 - rimNdotV) + smoothstep(0.86, 0.97, 1.0 - rimNdotV) * 0.42;
+        vec3 halfV = normalize(normalize(vViewPosition) + vec3(0.28, 0.88, 0.38));
+        float celSpec = smoothstep(0.94, 0.98, clamp(dot(normalize(normal), halfV), 0.0, 1.0));
+        outgoingLight += uTierRimColor * steppedRim * uTierRimStrength + vec3(0.96, 0.98, 1.0) * celSpec * 0.05;
         #include <opaque_fragment>`
       );
     };
