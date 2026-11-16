@@ -1,0 +1,13 @@
+# DISPATCH LOG — `sub_orch_m1_gen2`
+
+| Iteration | Step | Subagent Role & Directory | Conversation ID | Status | Summary |
+|-----------|------|---------------------------|-----------------|--------|---------|
+| r1 (predecessor) | 2B.a Explore | `teamwork_preview_explorer_m1_r1_1` | `cd77313e5acaf97294bfeb28226d1137` | COMPLETED (reused) | `1.5x` canvas sizing, silent `RGBA16F` MSAA probe, inverse ACES `#1A1033` (`rgb(26,16,51)`) blueprint |
+| r1 (predecessor) | 2B.a Explore | `teamwork_preview_explorer_m1_r1_2` | `dea03e6b76624ebc4544a2a3db5f423b` | COMPLETED (reused) | `TowerRig.idleCore`, T3 3D sub-parts, right-handed `hingedFlaps` metadata, Magnetic `weaponPitch`, `setTowerTierVisibility` |
+| r1 (predecessor) | 2B.a Explore | `teamwork_preview_explorer_m1_r1_3` | `7adc095cdf64f8489c1151f4332db539` | COMPLETED (reused) | Return Beacon 3-strut gantry + closed manifold 3D dish, `spawnChestOpenCelebration`, safe GPU `.dispose()` |
+| r1_gen2 | 2B.b Implement | `teamwork_preview_worker_m1_r1_1_gen2` (M1 Implementation Engineer) | `eb592e7c8546a63befdefe3d430fa76a` | COMPLETED | Audited & hardened Deliverables M1.1–M1.4 across all 5 authorized files; verified `tsc`, isolated Vite build, and headless WebGL2 checks |
+| r1_gen2 | 2B.c Review 1 | `teamwork_preview_reviewer_m1_r1_1_gen2` (M1 Reviewer 1: 3D Models & Contracts) | `afc4ef06e5aad2f24e974754d3dbefff` | COMPLETED (`APPROVE`) | Verified M1.1–M1.4 3D models, kinematics, Contracts 1–3, and `tsc`/isolated Vite build |
+| r1_gen2 | 2B.c Review 2 | `teamwork_preview_reviewer_m1_r1_2_gen2` (M1 Reviewer 2: WebGL2 & Outline Math) | `0377744171bf3764733e7dc0d55e23d0` | COMPLETED (`APPROVE`) | Verified `1.5x` WebGL2 `RGBA16F` pipeline, closed-form inverse ACES `#1A1033` math, strict `tsconfig`, and GPU lifecycle |
+| r1_gen2 | 2B.d Challenger 1 | `teamwork_preview_challenger_m1_r1_1_gen2` (M1 Challenger 1: WebGL2 Pixel & Resize) | `671a11ed5fcbb6e3a5ada381f83bf619` | COMPLETED (`APPROVE`) | Verified desktop/HiDPI `1.5x` sizing + dynamic resize raycast, `6,848` exact `[26,16,51,255]` pixels, `0` VFX outline pollution, and multi-angle solid Beacon dish |
+| r1_gen2 | 2B.d Challenger 2 | `teamwork_preview_challenger_m1_r1_2_gen2` (M1 Challenger 2: 3D Rigs & VFX Memory) | `91599551fd17b050df257b39fed73fda` | COMPLETED (`APPROVE`) | Verified all 3 `TowerRig` contracts, `10` flaps outward swing, non-bleaching `spawnChestOpenCelebration`, and `0` GPU geometry/texture leaks |
+| r1_gen2 | 2B.e Forensic Audit | `teamwork_preview_auditor_m1_r1_1_gen2` (M1 Forensic Integrity Auditor) | `5bb5d0987d76ba7e7e9f9c7389a7abd0` | COMPLETED (`CLEAN`) | Verified strict M1 file-ownership boundary, zero suppressions, genuine 3D meshes, exact ACES inverse math, and real GPU disposal |
