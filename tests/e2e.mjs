@@ -289,6 +289,7 @@ async function runSuite() {
     await page.click('#btn-start-wave');
     await page.evaluate(() => {
       const g = window.__LUNAR_BEACON_GAME__;
+    if (!g.getSnapshot().waveInProgress) g.startNextWave();
       for (let i = 0; i < 20 && g.getSnapshot().mode === 'playing'; i++) {
         g.debugStepSimulation(0.25, false);
       }
