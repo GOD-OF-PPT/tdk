@@ -2481,3 +2481,175 @@ button:disabled {
 .combo-float-tag.dmg-num-tag { padding: 1px 6px; font-family: var(--font-heavy); font-size: 13px; background: rgba(15,23,42,0.82); border-width: 1.5px; text-shadow: 0 1.5px 0 #1a1033; }
 .mvp-tower-banner { padding: 5px 10px; border-radius: 9px; background: rgba(251,191,36,0.14); border: 1.5px solid rgba(251,191,36,0.48); color: #fef08a; font-size: 12px; text-align: center; }
 @media (max-width: 640px) { .wave-intel-bar, .tower-record-chip { display: none; } }
+
+
+/* ==================== V4 ADAPTIVE SOUNDTRACK CONSOLE ==================== */
+.enamel-icon-btn.bgm-active {
+  color: #67e8f9;
+  border-color: #22d3ee;
+  box-shadow: 0 2px 0 #1a1033, 0 0 10px rgba(34, 211, 238, 0.25);
+}
+
+.bgm-popover-slot {
+  position: absolute;
+  top: 52px;
+  right: 10px;
+  z-index: 48;
+  pointer-events: auto;
+}
+
+.bgm-console-card {
+  width: min(332px, calc(100vw - 20px));
+  background: linear-gradient(180deg, rgba(25, 33, 56, 0.97), rgba(15, 21, 38, 0.98));
+  border: 2.5px solid #1a1033;
+  outline: 1.5px solid rgba(56, 189, 248, 0.45);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 26px rgba(6, 9, 20, 0.72);
+  color: #f3efe6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bgm-console-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bgm-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.bgm-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #64748b;
+}
+
+.bgm-live-dot.playing {
+  background: #22d3ee;
+  box-shadow: 0 0 8px #22d3ee;
+  animation: bgmPulseDot 1.3s ease-in-out infinite;
+}
+
+@keyframes bgmPulseDot {
+  0%, 100% { transform: scale(0.92); opacity: 0.75; }
+  50% { transform: scale(1.22); opacity: 1; }
+}
+
+.bgm-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bgm-power-btn {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1.5px solid #38bdf8;
+  background: rgba(14, 116, 144, 0.28);
+  color: #e0f2fe;
+  cursor: pointer;
+}
+
+.bgm-power-btn.off {
+  border-color: #64748b;
+  background: rgba(51, 65, 85, 0.45);
+  color: #94a3b8;
+}
+
+.bgm-now-playing {
+  background: rgba(11, 16, 30, 0.72);
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  border-radius: 9px;
+  padding: 6px 9px;
+}
+
+.bgm-track-name {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #67e8f9;
+}
+
+.bgm-track-meta {
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.bgm-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.bgm-mode-pill {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(148, 163, 184, 0.26);
+  background: rgba(30, 41, 59, 0.68);
+  color: #cbd5e1;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.bgm-mode-pill:hover {
+  border-color: rgba(103, 232, 249, 0.6);
+  color: #f8fafc;
+}
+
+.bgm-mode-pill.active {
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.65), rgba(59, 130, 246, 0.48));
+  border-color: #38bdf8;
+  color: #fef08a;
+}
+
+.bgm-mode-pill[data-bgm-mode="auto"] {
+  grid-column: span 2;
+  text-align: center;
+}
+
+.bgm-sliders-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 2px;
+}
+
+.bgm-slider-row {
+  display: grid;
+  grid-template-columns: 56px 1fr 36px;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.bgm-slider-row input[type="range"] {
+  width: 100%;
+  accent-color: #22d3ee;
+  cursor: pointer;
+  height: 5px;
+}
+
+.bgm-slider-row strong {
+  text-align: right;
+  font-size: 11px;
+  color: #67e8f9;
+}

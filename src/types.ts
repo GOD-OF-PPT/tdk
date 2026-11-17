@@ -553,6 +553,12 @@ export interface UISnapshot {
   kills: number;
   speedMultiplier: 1 | 2;
   muted: boolean;
+  bgmEnabled?: boolean;
+  bgmVolume?: number;
+  sfxVolume?: number;
+  bgmOverrideMode?: string;
+  bgmTrackLabel?: string;
+  bgmModeTag?: string;
   onboardingStep: OnboardingStep;
   selectedPadId: string | null;
   selectedPadLabel: string | null;

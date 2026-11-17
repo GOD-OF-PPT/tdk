@@ -142,6 +142,19 @@ function getAchievementProgressText(id: AchievementId, prog: ProgressionSnapshot
   }
 }
 
+const MUSIC_ON_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+const MUSIC_OFF_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>`;
+
+const BGM_MODE_OPTIONS: ReadonlyArray<{ id: string; shortLabel: string }> = [
+  { id: 'auto', shortLabel: '🤖 战况自适应' },
+  { id: 'hub', shortLabel: '🛰 I. 轨道静默' },
+  { id: 'prep', shortLabel: '📡 II. 信标校准' },
+  { id: 'combat', shortLabel: '⚔ III. 钢铁防线' },
+  { id: 'overdrive', shortLabel: '🔥 IV. 超载狂潮' },
+  { id: 'boss', shortLabel: '☠ V. 主宰降临' },
+  { id: 'victory', shortLabel: '🌟 VI. 返航星光' },
+];
+
 const VOLUME_ON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>`;
 const VOLUME_OFF_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
 const PAUSE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg>`;
@@ -163,7 +176,11 @@ export class UIManager {
   private elWave!: HTMLElement;
   private elKills!: HTMLElement;
   private btnSpeed!: HTMLButtonElement;
+  private btnBgm!: HTMLButtonElement;
   private btnMute!: HTMLButtonElement;
+  private bgmPopoverHost!: HTMLElement;
+  private bgmPopoverOpen = false;
+  private lastBgmPopSig = '';
   private btnFullscreen!: HTMLButtonElement;
   private btnPause!: HTMLButtonElement;
 
@@ -208,7 +225,28 @@ export class UIManager {
     this.btnOpenHub.addEventListener('click', () => this.openHub('campaign'));
     this.elCrystalPill.addEventListener('click', () => this.openHub('tech'));
     this.btnSpeed.addEventListener('click', () => this.engine.toggleSpeed());
+    this.btnBgm.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      this.engine.getAudio().playUiClick();
+      this.bgmPopoverOpen = !this.bgmPopoverOpen;
+      this.lastBgmPopSig = '';
+      this.renderBgmPopover(this.engine.getSnapshot());
+    });
     this.btnMute.addEventListener('click', () => this.engine.toggleMute());
+
+    const unlockOnce = () => {
+      this.engine.getAudio().unlock();
+    };
+    window.addEventListener('pointerdown', unlockOnce, { passive: true });
+    window.addEventListener('keydown', unlockOnce, { passive: true });
+    window.addEventListener('pointerdown', (ev) => {
+      if (!this.bgmPopoverOpen) return;
+      const target = ev.target as Node | null;
+      if (target && (this.bgmPopoverHost.contains(target) || this.btnBgm.contains(target))) return;
+      this.bgmPopoverOpen = false;
+      this.lastBgmPopSig = '';
+      this.bgmPopoverHost.innerHTML = '';
+    });
     this.btnFullscreen.addEventListener('click', () => this.engine.toggleFullscreen());
     this.btnPause.addEventListener('click', () => this.engine.togglePause());
 
@@ -224,6 +262,12 @@ export class UIManager {
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
     if (ev.key === 'Escape') {
+      if (this.bgmPopoverOpen) {
+        this.bgmPopoverOpen = false;
+        this.lastBgmPopSig = '';
+        this.bgmPopoverHost.innerHTML = '';
+        return;
+      }
       if (this.hubOpen) {
         this.closeHub();
         return;
@@ -278,6 +322,8 @@ export class UIManager {
       this.engine.sellSelectedTower();
     } else if (k === 'p') {
       this.engine.togglePause();
+    } else if (k === 'm') {
+      this.engine.toggleBgm();
     } else if (k === 'h') {
       if (this.hubOpen) this.closeHub();
       else this.openHub('campaign');
@@ -348,12 +394,14 @@ export class UIManager {
 
         <div class="hud-ctrl-group">
           <button class="enamel-icon-btn" id="btn-speed" type="button" aria-label="切换战斗倍速">1x</button>
+          <button class="enamel-icon-btn bgm-active" id="btn-bgm" type="button" title="原声配乐混音台 [快捷键 M]" aria-label="原声配乐控制台">${MUSIC_ON_SVG}</button>
           <button class="enamel-icon-btn" id="btn-mute" type="button" aria-label="静音开关">${VOLUME_ON_SVG}</button>
           <button class="enamel-icon-btn hide-narrow" id="btn-fullscreen" type="button" title="展开/全屏视图" aria-label="展开或全屏">${EXPAND_SVG}</button>
           <button class="enamel-icon-btn" id="btn-pause" type="button" aria-label="暂停菜单">${PAUSE_SVG}</button>
         </div>
       </header>
 
+      <div id="bgm-popover-slot" class="bgm-popover-slot"></div>
       <div id="combo-float-layer" class="combo-float-layer" aria-hidden="true"></div>
 
       <div class="hud-center-Overlay" id="hud-alerts">
@@ -389,7 +437,9 @@ export class UIManager {
     this.elKills = this.host.querySelector('#val-kills')!;
 
     this.btnSpeed = this.host.querySelector('#btn-speed')!;
+    this.btnBgm = this.host.querySelector('#btn-bgm')!;
     this.btnMute = this.host.querySelector('#btn-mute')!;
+    this.bgmPopoverHost = this.host.querySelector('#bgm-popover-slot')!;
     this.btnFullscreen = this.host.querySelector('#btn-fullscreen')!;
     this.btnPause = this.host.querySelector('#btn-pause')!;
 
@@ -577,8 +627,14 @@ export class UIManager {
 
     this.btnSpeed.textContent = `${snap.speedMultiplier}x`;
     this.btnSpeed.classList.toggle('active-toggle', snap.speedMultiplier === 2);
+    const bgmOn = (snap.bgmEnabled ?? true) && !snap.muted;
+    this.btnBgm.innerHTML = bgmOn ? MUSIC_ON_SVG : MUSIC_OFF_SVG;
+    this.btnBgm.classList.toggle('bgm-active', bgmOn);
+    this.btnBgm.classList.toggle('muted-toggle', !bgmOn);
+    this.btnBgm.title = `星区配乐台：${snap.bgmTrackLabel ?? '自适应配乐'} [点击展开混音台 / M键开关]`;
     this.btnMute.innerHTML = snap.muted ? VOLUME_OFF_SVG : VOLUME_ON_SVG;
     this.btnMute.classList.toggle('muted-toggle', snap.muted);
+    this.renderBgmPopover(snap);
 
     this.bottomDock.classList.toggle(
       'has-active-tray',
@@ -807,6 +863,117 @@ export class UIManager {
       if (snap.activeComboCount > 0) {
         comboPill.textContent = `连携 ×${snap.activeComboCount}`;
       }
+    }
+  }
+
+  private renderBgmPopover(snap: UISnapshot): void {
+    if (!this.bgmPopoverOpen) {
+      if (this.lastBgmPopSig !== '') {
+        this.lastBgmPopSig = '';
+        this.bgmPopoverHost.innerHTML = '';
+      }
+      return;
+    }
+
+    const bgmOn = snap.bgmEnabled ?? true;
+    const bgmVolPct = Math.round((snap.bgmVolume ?? 0.72) * 100);
+    const sfxVolPct = Math.round((snap.sfxVolume ?? 0.92) * 100);
+    const curMode = snap.bgmOverrideMode ?? 'auto';
+    const trackLabel = snap.bgmTrackLabel ?? 'II. 信标校准 · Cradle Calibration';
+    const modeTag = snap.bgmModeTag ?? '104 BPM';
+    const sig = `${bgmOn ? 1 : 0}:${snap.muted ? 1 : 0}:${curMode}:${trackLabel}:${bgmVolPct}:${sfxVolPct}`;
+    if (this.lastBgmPopSig === sig) return;
+    this.lastBgmPopSig = sig;
+
+    const pillsHtml = BGM_MODE_OPTIONS.map((opt) => {
+      const active = curMode === opt.id;
+      return `<button class="bgm-mode-pill ${active ? 'active' : ''}" data-bgm-mode="${opt.id}" type="button">${opt.shortLabel}</button>`;
+    }).join('');
+
+    this.bgmPopoverHost.innerHTML = `
+      <aside class="bgm-console-card" id="bgm-console-popover" role="dialog" aria-label="星区原声配乐混音台">
+        <div class="bgm-console-head">
+          <div class="bgm-title-wrap">
+            <span class="bgm-live-dot ${bgmOn && !snap.muted ? 'playing' : ''}"></span>
+            <strong>星区原声配乐台</strong>
+          </div>
+          <div class="bgm-head-actions">
+            <button class="bgm-power-btn ${bgmOn ? 'on' : 'off'}" id="btn-bgm-power" type="button">
+              ${bgmOn ? '🎵 音乐开启' : '🔇 音乐关闭'}
+            </button>
+            <button class="sheet-close-btn bgm-close" id="btn-close-bgm-pop" type="button" aria-label="关闭配乐台">✕</button>
+          </div>
+        </div>
+
+        <div class="bgm-now-playing">
+          <div class="bgm-track-name" id="bgm-now-track">${trackLabel}</div>
+          <div class="bgm-track-meta">${modeTag} · Web Audio 实时合成器</div>
+        </div>
+
+        <div class="bgm-mode-grid" id="bgm-mode-grid">
+          ${pillsHtml}
+        </div>
+
+        <div class="bgm-sliders-box">
+          <label class="bgm-slider-row">
+            <span>音乐音量</span>
+            <input type="range" id="slider-bgm-vol" min="0" max="100" value="${bgmVolPct}" />
+            <strong id="val-bgm-vol">${bgmVolPct}%</strong>
+          </label>
+          <label class="bgm-slider-row">
+            <span>战斗音效</span>
+            <input type="range" id="slider-sfx-vol" min="0" max="100" value="${sfxVolPct}" />
+            <strong id="val-sfx-vol">${sfxVolPct}%</strong>
+          </label>
+        </div>
+      </aside>
+    `;
+
+    this.bgmPopoverHost.querySelector('#btn-close-bgm-pop')!.addEventListener('click', () => {
+      this.engine.getAudio().playUiClick();
+      this.bgmPopoverOpen = false;
+      this.lastBgmPopSig = '';
+      this.bgmPopoverHost.innerHTML = '';
+    });
+
+    this.bgmPopoverHost.querySelector('#btn-bgm-power')!.addEventListener('click', () => {
+      this.engine.getAudio().playUiClick();
+      this.engine.toggleBgm();
+    });
+
+    this.bgmPopoverHost.querySelectorAll<HTMLButtonElement>('[data-bgm-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.bgmMode;
+        if (!mode) return;
+        this.engine.getAudio().playUiClick();
+        this.engine.setBgmOverrideMode(mode as Parameters<GameEngine['setBgmOverrideMode']>[0]);
+      });
+    });
+
+    const bgmSlider = this.bgmPopoverHost.querySelector<HTMLInputElement>('#slider-bgm-vol');
+    const bgmVal = this.bgmPopoverHost.querySelector<HTMLElement>('#val-bgm-vol');
+    if (bgmSlider) {
+      bgmSlider.addEventListener('input', () => {
+        const v = Number(bgmSlider.value);
+        if (bgmVal) bgmVal.textContent = `${v}%`;
+        this.engine.getAudio().setBgmVolume(v / 100);
+      });
+      bgmSlider.addEventListener('change', () => {
+        this.engine.setBgmVolume(Number(bgmSlider.value) / 100);
+      });
+    }
+
+    const sfxSlider = this.bgmPopoverHost.querySelector<HTMLInputElement>('#slider-sfx-vol');
+    const sfxVal = this.bgmPopoverHost.querySelector<HTMLElement>('#val-sfx-vol');
+    if (sfxSlider) {
+      sfxSlider.addEventListener('input', () => {
+        const v = Number(sfxSlider.value);
+        if (sfxVal) sfxVal.textContent = `${v}%`;
+        this.engine.getAudio().setSfxVolume(v / 100);
+      });
+      sfxSlider.addEventListener('change', () => {
+        this.engine.setSfxVolume(Number(sfxSlider.value) / 100);
+      });
     }
   }
 

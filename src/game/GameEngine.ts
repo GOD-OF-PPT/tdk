@@ -1,6 +1,6 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
-import { AudioManager } from '../audio/AudioManager';
+import { AudioManager, type BgmOverrideMode, type BgmScene } from '../audio/AudioManager';
 import {
   compileStageLanes,
   generateEndlessWave,
@@ -413,6 +413,7 @@ export class GameEngine {
     this.vfx.dispose();
     this.clearDynamicEntities();
     this.env.dispose();
+    this.audio.dispose();
     this.composer.dispose();
   }
 
@@ -1370,6 +1371,56 @@ export class GameEngine {
     this.progression.setMuted(muted);
     this.emitSnapshot();
     return muted;
+  }
+
+  public toggleBgm(): boolean {
+    const enabled = this.audio.toggleBgm();
+    this.emitSnapshot();
+    return enabled;
+  }
+
+  public setBgmVolume(vol: number): void {
+    this.audio.setBgmVolume(vol);
+    this.emitSnapshot();
+  }
+
+  public setSfxVolume(vol: number): void {
+    this.audio.setSfxVolume(vol);
+    this.emitSnapshot();
+  }
+
+  public setBgmOverrideMode(mode: BgmOverrideMode): void {
+    this.audio.setBgmOverrideMode(mode);
+    this.emitSnapshot();
+  }
+
+  private syncAdaptiveBgm(hasActiveBoss: boolean): void {
+    let scene: BgmScene = 'prep';
+    if (this.overlayPaused) {
+      scene = 'hub';
+    } else if (this.mode === 'defeat') {
+      scene = 'defeat';
+    } else if (
+      this.mode === 'victory_cinematic' ||
+      this.mode === 'victory_panel' ||
+      this.mode === 'reward_claiming' ||
+      this.mode === 'reward_claimed'
+    ) {
+      scene = 'victory';
+    } else if (this.mode === 'boss_intro' || hasActiveBoss) {
+      scene = 'boss';
+    } else if (this.waveInProgress) {
+      const lowBeacon = this.beaconHp / Math.max(1, this.maxBeaconHp) <= 0.45;
+      const lateWave = this.isEndlessMode() || this.waveIndex >= 3;
+      scene = lowBeacon || lateWave ? 'overdrive' : 'combat';
+    } else {
+      scene = 'prep';
+    }
+    this.audio.updateAdaptiveBgm({
+      scene,
+      stageId: this.currentStageId,
+      paused: this.mode === 'paused',
+    });
   }
 
   /**
@@ -3539,6 +3590,7 @@ export class GameEngine {
     }
 
     const activeBoss = this.enemies.find((e) => e.isBoss && !e.dead && e.hp > 0) ?? null;
+    this.syncAdaptiveBgm(activeBoss !== null);
     const stars = ProgressionManager.computeStars(this.beaconHp, this.maxBeaconHp);
 
     const stageIdx = STAGE_ORDER.indexOf(this.currentStageId);
@@ -3646,6 +3698,12 @@ export class GameEngine {
       kills: this.kills,
       speedMultiplier: this.speedMultiplier,
       muted: this.audio.isMuted(),
+      bgmEnabled: this.audio.isBgmEnabled(),
+      bgmVolume: this.audio.getBgmVolume(),
+      sfxVolume: this.audio.getSfxVolume(),
+      bgmOverrideMode: this.audio.getBgmOverrideMode(),
+      bgmTrackLabel: this.audio.getActiveBgmLabel(),
+      bgmModeTag: this.audio.getActiveBgmMeta().modeTag,
       onboardingStep: this.onboardingStep,
       selectedPadId: this.selectedPadId,
       selectedPadLabel,
