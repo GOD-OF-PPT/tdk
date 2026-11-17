@@ -76,10 +76,16 @@ function bootstrap(): void {
   } catch (err) {
     console.error('Lunar Beacon bootstrap error:', err);
     uiRoot.style.pointerEvents = 'auto';
-    uiRoot.innerHTML = `<div style="margin:auto;padding:20px;max-width:420px;background:#192138;border:2px solid #1a1033;border-radius:14px;color:#f3efe6;text-align:center;">
-      <div style="font-weight:900;font-size:16px;margin-bottom:8px;">WebGL 3D 渲染初始化失败</div>
-      <div style="font-size:13px;color:#cbd5e1;">请确认浏览器已开启硬件加速 / WebGL 支持（${String(err)}）</div>
-    </div>`;
+    const panel = document.createElement('div');
+    panel.style.cssText = 'margin:auto;padding:20px;max-width:420px;background:#192138;border:2px solid #1a1033;border-radius:14px;color:#f3efe6;text-align:center;';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:900;font-size:16px;margin-bottom:8px;';
+    title.textContent = 'WebGL 3D 渲染初始化失败';
+    const detail = document.createElement('div');
+    detail.style.cssText = 'font-size:13px;color:#cbd5e1;';
+    detail.textContent = `请确认浏览器已开启硬件加速 / WebGL 支持（${String(err)}）`;
+    panel.append(title, detail);
+    uiRoot.replaceChildren(panel);
   }
 }
 

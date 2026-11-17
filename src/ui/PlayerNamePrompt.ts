@@ -1,3 +1,4 @@
+import { setSanitizedHtml } from './safeHtml';
 import type { LeaderboardService } from '../ranking/LeaderboardService';
 
 export function promptPlayerName(leaderboard: LeaderboardService): Promise<void> {
@@ -6,7 +7,7 @@ export function promptPlayerName(leaderboard: LeaderboardService): Promise<void>
     const mask = document.createElement('div');
     mask.className = 'player-name-mask';
     mask.id = 'player-name-modal';
-    mask.innerHTML = `
+    setSanitizedHtml(mask, `
       <form class="player-name-dialog" role="dialog" aria-modal="true" aria-labelledby="player-name-title">
         <div class="dialog-kicker">LUNAR BEACON · 指挥官登记</div>
         <h2 id="player-name-title">${editing ? '修改指挥官名字' : '挑战结束，登记战绩'}</h2>
@@ -16,7 +17,7 @@ export function promptPlayerName(leaderboard: LeaderboardService): Promise<void>
         <p class="player-name-error" id="player-name-error" role="alert"></p>
         <button class="enamel-cta-btn primary" id="btn-save-player-name" type="submit">${editing ? '保存名字' : '登记并解锁排行榜'}</button>
         ${editing ? '<button class="enamel-cta-btn secondary" id="btn-cancel-player-name" type="button">取消</button>' : ''}
-      </form>`;
+      </form>`);
     const input = mask.querySelector<HTMLInputElement>('#player-name-input')!;
     input.value = leaderboard.getUsername();
     const close = () => { mask.remove(); resolve(); };

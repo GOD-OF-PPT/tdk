@@ -1,3 +1,4 @@
+import { setSanitizedHtml } from './safeHtml';
 import { STAGE_CONFIGS, STAGE_ORDER } from '../config/campaignConfig';
 import { LeaderboardService, RANKING_CONFIG } from '../ranking/LeaderboardService';
 import { promptPlayerName } from './PlayerNamePrompt';
@@ -277,7 +278,7 @@ export class UIManager {
       if (target && (this.bgmPopoverHost.contains(target) || this.btnBgm.contains(target))) return;
       this.bgmPopoverOpen = false;
       this.lastBgmPopSig = '';
-      this.bgmPopoverHost.innerHTML = '';
+      this.bgmPopoverHost.replaceChildren();
     });
     this.btnFullscreen.addEventListener('click', () => this.engine.toggleFullscreen());
     this.btnPause.addEventListener('click', () => this.engine.togglePause());
@@ -298,7 +299,7 @@ export class UIManager {
       if (this.bgmPopoverOpen) {
         this.bgmPopoverOpen = false;
         this.lastBgmPopSig = '';
-        this.bgmPopoverHost.innerHTML = '';
+        this.bgmPopoverHost.replaceChildren();
         return;
       }
       if (this.hubOpen) {
@@ -392,12 +393,12 @@ export class UIManager {
     this.engine.getAudio().playUiClick();
     this.hubOpen = false;
     this.lastHubSig = '';
-    this.hubHost.innerHTML = '';
+    this.hubHost.replaceChildren();
     this.engine.setOverlayPause(false);
   }
 
   private buildStaticSkeleton(): void {
-    this.host.innerHTML = `
+    setSanitizedHtml(this.host, `
       <header class="hud-top-bar" id="hud-top-bar">
         <h1 class="sr-only">月海信标 · 星区中继战役 3D机甲塔防</h1>
         <div class="hud-stats-group">
@@ -462,7 +463,7 @@ export class UIManager {
 
       <div id="modal-slot"></div>
       <div id="hub-slot" class="hub-slot"></div>
-    `;
+    `);
 
     this.btnOpenHub = this.host.querySelector('#btn-open-hub')!;
     this.elSectorName = this.host.querySelector('#val-sector-name')!;
@@ -503,10 +504,10 @@ export class UIManager {
     void this.elGoldPill.offsetWidth;
     this.elGoldPill.classList.add('shake-warn');
 
-    this.toastBox.innerHTML = `<div class="short-feedback-pill warn" id="insufficient-toast">金币不足 · 还差 ${missing}</div>`;
+    setSanitizedHtml(this.toastBox, `<div class="short-feedback-pill warn" id="insufficient-toast">金币不足 · 还差 ${missing}</div>`);
     window.clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => {
-      this.toastBox.innerHTML = '';
+      this.toastBox.replaceChildren();
     }, 1450);
   }
 
@@ -518,10 +519,10 @@ export class UIManager {
       energyEl.classList.add('shake-warn');
     }
 
-    this.toastBox.innerHTML = `<div class="short-feedback-pill warn" id="insufficient-energy-toast">⚡ 战术能量不足 · 还差 ${missing}⚡</div>`;
+    setSanitizedHtml(this.toastBox, `<div class="short-feedback-pill warn" id="insufficient-energy-toast">⚡ 战术能量不足 · 还差 ${missing}⚡</div>`);
     window.clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => {
-      this.toastBox.innerHTML = '';
+      this.toastBox.replaceChildren();
     }, 1450);
   }
 
@@ -590,33 +591,33 @@ export class UIManager {
       )
       .join('');
 
-    this.stampBox.innerHTML = `
+    setSanitizedHtml(this.stampBox, `
       <div class="upgrade-stamp-wrap ${isLegendary ? 'legendary' : ''}" id="upgrade-stamp">
         <div class="stamp-title-row">${charsHtml}</div>
         <div class="stamp-deltas-row">${deltasHtml}</div>
       </div>
-    `;
+    `);
 
     window.clearTimeout(this.stampTimer);
     this.stampTimer = window.setTimeout(
       () => {
-        this.stampBox.innerHTML = '';
+        this.stampBox.replaceChildren();
       },
       isLegendary ? 2600 : 1550
     );
   }
 
   public showBanner(title: string, subtitle: string, accentHex: string): void {
-    this.bannerBox.innerHTML = `
+    setSanitizedHtml(this.bannerBox, `
       <div class="wave-banner-card" style="border-left-color:${accentHex}">
         <div class="wave-banner-title" style="color:${accentHex}">${title}</div>
         <div class="wave-banner-sub">${subtitle}</div>
       </div>
-    `;
+    `);
   }
 
   public hideBanner(): void {
-    this.bannerBox.innerHTML = '';
+    this.bannerBox.replaceChildren();
   }
 
   private rollNumber(el: HTMLElement, fromVal: number, toVal: number, suffix = ''): void {
@@ -665,11 +666,11 @@ export class UIManager {
     this.btnSpeed.textContent = `${snap.speedMultiplier}x`;
     this.btnSpeed.classList.toggle('active-toggle', snap.speedMultiplier === 2);
     const bgmOn = (snap.bgmEnabled ?? true) && !snap.muted;
-    this.btnBgm.innerHTML = bgmOn ? MUSIC_ON_SVG : MUSIC_OFF_SVG;
+    setSanitizedHtml(this.btnBgm, bgmOn ? MUSIC_ON_SVG : MUSIC_OFF_SVG);
     this.btnBgm.classList.toggle('bgm-active', bgmOn);
     this.btnBgm.classList.toggle('muted-toggle', !bgmOn);
     this.btnBgm.title = `星区配乐台：${snap.bgmTrackLabel ?? '自适应配乐'} [点击展开混音台 / M键开关]`;
-    this.btnMute.innerHTML = snap.muted ? VOLUME_OFF_SVG : VOLUME_ON_SVG;
+    setSanitizedHtml(this.btnMute, snap.muted ? VOLUME_OFF_SVG : VOLUME_ON_SVG);
     this.btnMute.classList.toggle('muted-toggle', snap.muted);
     this.renderBgmPopover(snap);
 
@@ -681,7 +682,7 @@ export class UIManager {
     // 2. Boss Top Health Bar (whenever an active Boss is on field)
     if (snap.bossStatus) {
       const pct = Math.max(0, Math.min(100, (snap.bossStatus.hp / snap.bossStatus.maxHp) * 100));
-      this.bossBarBox.innerHTML = `
+      setSanitizedHtml(this.bossBarBox, `
         <div class="boss-hud-card" id="boss-hud-bar">
           <div class="boss-hud-top">
             <span>${snap.bossStatus.name}</span>
@@ -696,9 +697,9 @@ export class UIManager {
               : ''
           }
         </div>
-      `;
+      `);
     } else if (this.bossBarBox.innerHTML !== '') {
-      this.bossBarBox.innerHTML = '';
+      this.bossBarBox.replaceChildren();
     }
 
     // 3. First-Play Compact Non-Blocking Onboarding Guide
@@ -706,7 +707,7 @@ export class UIManager {
       const s1 = snap.onboardingStep === 'select_pad' ? 'active' : 'done';
       const s2 = snap.onboardingStep === 'build_tower' ? 'active' : snap.onboardingStep === 'start_wave' ? 'done' : '';
       const s3 = snap.onboardingStep === 'start_wave' ? 'active' : '';
-      this.onboardingBox.innerHTML = `
+      setSanitizedHtml(this.onboardingBox, `
         <div class="onboarding-strip" id="onboarding-guide">
           <span class="ob-step ${s1}">① 选择基座</span>
           <span class="ob-arrow">›</span>
@@ -714,28 +715,28 @@ export class UIManager {
           <span class="ob-arrow">›</span>
           <span class="ob-step ${s3}">③ 开始防守</span>
         </div>
-      `;
+      `);
     } else if (this.onboardingBox.innerHTML !== '') {
-      this.onboardingBox.innerHTML = '';
+      this.onboardingBox.replaceChildren();
     }
 
     // 3B. Armed Tactical Skill Targeting Banner (#skill-targeting-banner)
     if (snap.mode === 'playing' && snap.armedSkillId !== null) {
       if (this.targetingBox.dataset.armed !== snap.armedSkillId) {
         this.targetingBox.dataset.armed = snap.armedSkillId;
-        this.targetingBox.innerHTML = `
+        setSanitizedHtml(this.targetingBox, `
           <div class="skill-targeting-banner" id="skill-targeting-banner">
             <span>🎯 点击或拖拽地面锁定【轨道离子轰炸】落点</span>
             <button class="aim-cancel-btn" id="btn-cancel-skill" type="button">取消 [Esc]</button>
           </div>
-        `;
+        `);
         this.targetingBox
           .querySelector('#btn-cancel-skill')!
           .addEventListener('click', () => this.engine.cancelSkillTargeting());
       }
     } else if (this.targetingBox.innerHTML !== '') {
       this.targetingBox.dataset.armed = '';
-      this.targetingBox.innerHTML = '';
+      this.targetingBox.replaceChildren();
     }
 
     // 4. Commander Tactical Skills Dock & Energy Readout (in-place update without innerHTML replacement!)
@@ -764,7 +765,7 @@ export class UIManager {
         const intelHtml = showStartWave && intel
           ? `<div class="wave-intel-bar ${intel.hasBoss ? 'boss-warn' : ''}" id="wave-intel-bar" title="下一波来袭敌械情报（快捷键 Space 出击）"><span class="wave-intel-text">📡 下波：${intel.summary}</span>${intelTagsHtml}</div>`
           : '';
-        this.nextWaveWrap.innerHTML = `
+        setSanitizedHtml(this.nextWaveWrap, `
           <div class="next-wave-pack ${showAutoBattle ? 'endless-wave-controls' : ''}">
             ${intelHtml}
             ${showAutoBattle ? `
@@ -780,7 +781,7 @@ export class UIManager {
               </button>
             ` : ''}
           </div>
-        `;
+        `);
         this.nextWaveWrap
           .querySelector('#btn-start-wave')
           ?.addEventListener('click', () => this.engine.startNextWave());
@@ -793,7 +794,7 @@ export class UIManager {
       }
     } else if (this.nextWaveWrap.innerHTML !== '') {
       this.nextWaveWrap.dataset.sig = '';
-      this.nextWaveWrap.innerHTML = '';
+      this.nextWaveWrap.replaceChildren();
     }
 
     // 6. Bottom Build Tray or Tower Inspector Panel
@@ -810,7 +811,7 @@ export class UIManager {
     if (snap.mode !== 'playing' || snap.skills.length === 0) {
       if (this.skillsMountKey !== '') {
         this.skillsMountKey = '';
-        this.skillsSlotHost.innerHTML = '';
+        this.skillsSlotHost.replaceChildren();
       }
       return;
     }
@@ -844,7 +845,7 @@ export class UIManager {
         })
         .join('');
 
-      this.skillsSlotHost.innerHTML = `
+      setSanitizedHtml(this.skillsSlotHost, `
         <div class="commander-skills-dock" id="commander-skills-dock">
           <div class="tactical-energy-pill" id="tactical-energy-pill" title="指挥官战术能量（波次战斗与击杀充能）">
             <div class="energy-top-line">
@@ -877,7 +878,7 @@ export class UIManager {
           }
           <span class="combo-live-pill" id="combo-live-pill" title="跨塔战术连携计数" hidden></span>
         </div>
-      `;
+      `);
 
       this.skillsSlotHost
         .querySelector('#btn-supply-gold')
@@ -974,7 +975,7 @@ export class UIManager {
     if (!this.bgmPopoverOpen) {
       if (this.lastBgmPopSig !== '') {
         this.lastBgmPopSig = '';
-        this.bgmPopoverHost.innerHTML = '';
+        this.bgmPopoverHost.replaceChildren();
       }
       return;
     }
@@ -994,7 +995,7 @@ export class UIManager {
       return `<button class="bgm-mode-pill ${active ? 'active' : ''}" data-bgm-mode="${opt.id}" type="button">${opt.shortLabel}</button>`;
     }).join('');
 
-    this.bgmPopoverHost.innerHTML = `
+    setSanitizedHtml(this.bgmPopoverHost, `
       <aside class="bgm-console-card" id="bgm-console-popover" role="dialog" aria-label="星区原声配乐混音台">
         <div class="bgm-console-head">
           <div class="bgm-title-wrap">
@@ -1031,13 +1032,13 @@ export class UIManager {
           </label>
         </div>
       </aside>
-    `;
+    `);
 
     this.bgmPopoverHost.querySelector('#btn-close-bgm-pop')!.addEventListener('click', () => {
       this.engine.getAudio().playUiClick();
       this.bgmPopoverOpen = false;
       this.lastBgmPopSig = '';
-      this.bgmPopoverHost.innerHTML = '';
+      this.bgmPopoverHost.replaceChildren();
     });
 
     this.bgmPopoverHost.querySelector('#btn-bgm-power')!.addEventListener('click', () => {
@@ -1085,7 +1086,7 @@ export class UIManager {
     if (snap.mode !== 'playing' || !snap.selectedPadId) {
       if (this.lastTraySig !== 'none') {
         this.lastTraySig = 'none';
-        this.trayHost.innerHTML = '';
+        this.trayHost.replaceChildren();
       }
       return;
     }
@@ -1123,7 +1124,7 @@ export class UIManager {
       // Tier 3 Compact Dual T4-A / T4-B Specialization Choice Layout (<= 132px across all viewports!)
       if (tw.tier === 3 && brOpts) {
         const [optA, optB] = brOpts;
-        this.trayHost.innerHTML = `
+        setSanitizedHtml(this.trayHost, `
           <section class="tactical-sheet t3-branch-mode ${wasHidden ? 'sheet-enter' : ''}" id="tower-inspector">
             <div class="sheet-head compact-t3-head">
               <div class="sheet-title-row compact-title-row">
@@ -1175,7 +1176,7 @@ export class UIManager {
               </button>
             </div>
           </section>
-        `;
+        `);
 
         if (didJustUpgrade && prev) {
           const elDmg = this.trayHost.querySelector('#ins-dmg') as HTMLElement | null;
@@ -1286,7 +1287,7 @@ export class UIManager {
         `;
       }
 
-      this.trayHost.innerHTML = `
+      setSanitizedHtml(this.trayHost, `
         <section class="tactical-sheet ${wasHidden ? 'sheet-enter' : ''}" id="tower-inspector">
           <div class="sheet-head">
             <div class="sheet-title-row">
@@ -1323,7 +1324,7 @@ export class UIManager {
             </div>
           </div>
         </section>
-      `;
+      `);
 
       // Animate rolling numbers if this tower just upgraded!
       if (didJustUpgrade && prev) {
@@ -1393,7 +1394,7 @@ export class UIManager {
       `;
     }).join('');
 
-    this.trayHost.innerHTML = `
+    setSanitizedHtml(this.trayHost, `
       <section class="tactical-sheet build-mode ${wasHidden ? 'sheet-enter' : ''}" id="build-tray">
         <div class="sheet-head compact">
           <span class="pad-title-tag">
@@ -1418,7 +1419,7 @@ export class UIManager {
           ${cardsHtml}
         </div>
       </section>
-    `;
+    `);
 
     this.trayHost
       .querySelector('#btn-close-build')!
@@ -1460,7 +1461,7 @@ export class UIManager {
     this.lastModalSig = modalSig;
 
     if (modalSig === 'none') {
-      this.modalHost.innerHTML = '';
+      this.modalHost.replaceChildren();
       return;
     }
 
@@ -1468,7 +1469,7 @@ export class UIManager {
       const waveSummary = snap.isEndless
         ? `无尽超载第 ${snap.waveNumber} 波`
         : `第 ${snap.waveNumber} / ${snap.totalWaves} 波`;
-      this.modalHost.innerHTML = `
+      setSanitizedHtml(this.modalHost, `
         <div class="modal-mask" id="pause-modal">
           <div class="enamel-dialog">
             <h2 class="dialog-title">工程防线已暂停</h2>
@@ -1480,7 +1481,7 @@ export class UIManager {
             </div>
           </div>
         </div>
-      `;
+      `);
       this.modalHost.querySelector('#btn-resume')!.addEventListener('click', () => this.engine.togglePause());
       this.modalHost.querySelector('#btn-hub-from-modal')!.addEventListener('click', () => {
         this.engine.togglePause();
@@ -1498,7 +1499,7 @@ export class UIManager {
         ? `星区无尽超载坚守至第 ${snap.waveNumber} 波（历史最高纪录 W${bestWave}），累计击毁 ${snap.kills} 台失控机械！可前往工程改装台强化科技再次冲击更高波次。`
         : `【${snap.stageName}】防线坚守至第 ${snap.waveNumber} 波，累计击毁 ${snap.kills} 台失控采矿机械。合理搭配【磁场减速 + 脉冲迫击炮 + 联装机炮】并善用战场机关即可稳固防线！`;
 
-      this.modalHost.innerHTML = `
+      setSanitizedHtml(this.modalHost, `
         <div class="modal-mask" id="defeat-modal">
           <div class="enamel-dialog danger">
             <div class="dialog-kicker">${snap.isEndless ? 'ENDLESS OVERDRIVE SETTLEMENT' : 'BEACON OFFLINE'}</div>
@@ -1510,7 +1511,7 @@ export class UIManager {
             </div>
           </div>
         </div>
-      `;
+      `);
       this.modalHost
         .querySelector('#btn-retry-defeat')!
         .addEventListener('click', () => this.engine.startNewMission(false));
@@ -1530,7 +1531,7 @@ export class UIManager {
     const nextTargetId: StageId = snap.nextStageId ?? 'endless';
     const nextTargetLabel = snap.nextStageName ?? '星区无尽超载';
 
-    this.modalHost.innerHTML = `
+    setSanitizedHtml(this.modalHost, `
       <div class="victory-side-wrap" id="victory-screen">
         <div class="enamel-dialog victory-panel-card">
           <div class="dialog-kicker gold">EVACUATION SIGNAL LOCKED · ${snap.stageCode}</div>
@@ -1593,7 +1594,7 @@ export class UIManager {
           </div>
         </div>
       </div>
-    `;
+    `);
 
     const claimBtn = this.modalHost.querySelector('#btn-claim-rewards');
     if (claimBtn) {
@@ -1619,7 +1620,7 @@ export class UIManager {
     if (!this.hubOpen) {
       if (this.lastHubSig !== '') {
         this.lastHubSig = '';
-        this.hubHost.innerHTML = '';
+        this.hubHost.replaceChildren();
       }
       return;
     }
@@ -1653,7 +1654,7 @@ export class UIManager {
           ? this.renderHubTechTab(snap)
           : this.hubTab === 'codex' ? this.renderHubCodexTab(snap) : this.renderLeaderboardTab();
 
-    this.hubHost.innerHTML = `
+    setSanitizedHtml(this.hubHost, `
       <div class="modal-mask hub-mask" id="sector-hub-modal">
         <div class="hub-dialog">
           <div class="hub-header">
@@ -1697,7 +1698,7 @@ export class UIManager {
           </div>
         </div>
       </div>
-    `;
+    `);
 
     this.hubHost.querySelector('#btn-close-hub')!.addEventListener('click', () => this.closeHub());
     this.hubHost.querySelector('#hub-tab-btn-campaign')!.addEventListener('click', () => {
@@ -2263,7 +2264,7 @@ export class UIManager {
         const targetStage = this.selectedHubStageId;
         this.hubOpen = false;
         this.lastHubSig = '';
-        this.hubHost.innerHTML = '';
+        this.hubHost.replaceChildren();
         this.engine.launchStage(targetStage, false);
       });
     }
