@@ -12,6 +12,16 @@ function setLayerRecursive(obj: THREE.Object3D, layer: number): void {
   }
 }
 
+function attachTireTreads(wGrp: THREE.Group, r: number, w: number, lugMat: THREE.Material, hubMat: THREE.Material): void {
+  for (let t = 0; t < 6; t++) { const a = (t * Math.PI * 2) / 6; const cleat = new THREE.Mesh(new THREE.BoxGeometry(w * 1.06, 0.036, 0.045), lugMat); cleat.position.set(0, Math.cos(a) * r, Math.sin(a) * r); cleat.rotation.x = -a; wGrp.add(cleat); }
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.48, r * 0.48, w * 1.12, 8), hubMat); cap.rotation.z = Math.PI / 2; wGrp.add(cap);
+}
+function addPlasmaThrusters(parent: THREE.Object3D, xs: number[], y: number, z: number, r: number, bodyMat: THREE.Material, glowHex: number): void {
+  const bellGeo = new THREE.CylinderGeometry(r * 0.72, r, r * 1.6, 10); bellGeo.rotateX(Math.PI / 2);
+  const plumeGeo = new THREE.ConeGeometry(r * 0.64, r * 2.4, 8); plumeGeo.rotateX(-Math.PI / 2);
+  const plumeMat = new THREE.MeshBasicMaterial({ color: glowHex, transparent: true, opacity: 0.88, depthWrite: false });
+  for (const x of xs) { const bell = new THREE.Mesh(bellGeo, bodyMat); bell.position.set(x, y, z); parent.add(bell); const plume = new THREE.Mesh(plumeGeo, plumeMat); plume.position.set(x, y, z - r * 1.45); plume.layers.set(1); parent.add(plume); }
+}
 export function createEnemyRig(type: EnemyType): EnemyRig {
   const bp = ENEMY_BLUEPRINTS[type];
   const tex = getToonTextures();
@@ -67,6 +77,8 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
     eye.position.set(0, 0.42, 0.47);
     bodyGroup.add(eye);
 
+    const plow = new THREE.Mesh(new RoundedBoxGeometry(0.68, 0.14, 0.14, 2, 0.03), hazardYellowMat); plow.position.set(0, 0.16, 0.44); plow.rotation.x = 0.28; bodyGroup.add(plow);
+    addPlasmaThrusters(bodyGroup, [-0.18, 0.18], 0.34, -0.42, 0.085, darkGreyMat, 0xff6b2b);
     // Antenna & rear battery pack
     const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.32, 6), darkGreyMat);
     ant.position.set(0.18, 0.7, -0.2);
@@ -79,12 +91,11 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
       for (const sz of [-0.24, 0.24]) {
         const wGrp = new THREE.Group();
         wGrp.position.set(sx * 0.38, 0.18, sz);
-        const tire = new THREE.Mesh(wheelGeo, chassisMat);
-        tire.rotation.z = Math.PI / 2;
-        tire.castShadow = true;
-        wGrp.add(tire);
+        const tire = new THREE.Mesh(wheelGeo, chassisMat); tire.rotation.z = Math.PI / 2; tire.castShadow = true; wGrp.add(tire);
+        attachTireTreads(wGrp, 0.17, 0.14, darkGreyMat, hazardYellowMat);
         const spoke = new THREE.Mesh(hubGeo, darkGreyMat);
         wGrp.add(spoke);
+        attachTireTreads(wGrp, 0.18, 0.14, darkGreyMat, hazardYellowMat);
         bodyGroup.add(wGrp);
         wheelsOrRotors.push(wGrp);
       }
@@ -103,6 +114,8 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
     cargo.castShadow = true;
     bodyGroup.add(cargo);
 
+    for (const mx of [-0.16, 0.16]) { const fang = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.22, 6), hazardYellowMat); fang.rotation.x = Math.PI / 2; fang.position.set(mx, -0.04, 0.42); bodyGroup.add(fang); }
+    const tailFin = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.22, 0.24, 2, 0.02), darkGreyMat); tailFin.position.set(0, 0.16, -0.28); bodyGroup.add(tailFin);
     const sensorVisor = new THREE.Mesh(new RoundedBoxGeometry(0.32, 0.09, 0.1, 2, 0.02), sensorMat);
     sensorVisor.position.set(0, 0.02, 0.33);
     bodyGroup.add(sensorVisor);
@@ -119,8 +132,8 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
       rotor.position.set(sx * 0.44, 0.07, 0);
       const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.07), hazardYellowMat);
       const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.02, 0.36), hazardYellowMat);
-      rotor.add(b1, b2);
-      bodyGroup.add(rotor);
+      rotor.add(b1, b2); bodyGroup.add(rotor);
+      const hoverJet = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.28, 8), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72, depthWrite: false })); hoverJet.rotation.x = Math.PI; hoverJet.position.set(sx * 0.44, -0.12, 0); hoverJet.layers.set(1); bodyGroup.add(hoverJet);
       wheelsOrRotors.push(rotor);
     }
   } else if (type === 'drill' || type === 'elite_drill') {
@@ -134,6 +147,8 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
     chassis.castShadow = true;
     bodyGroup.add(chassis);
 
+    addPlasmaThrusters(bodyGroup, [-0.24, 0.24], 0.42, -0.54, 0.11, chassisMat, 0xff5722);
+    for (const sx of [-0.28, 0.28]) { const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 0.38, 8), chassisMat); pipe.position.set(sx, 0.98, -0.28); pipe.rotation.x = -0.26; bodyGroup.add(pipe); }
     const upperCarapace = new THREE.Mesh(new RoundedBoxGeometry(0.78, 0.34, 0.82, 3, 0.07), rustMat);
     upperCarapace.position.set(0, 0.72, -0.06);
     upperCarapace.castShadow = true;
@@ -247,6 +262,7 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
       emissiveIntensity: 2.1,
       roughness: 0.15,
     });
+    addPlasmaThrusters(bodyGroup, [-0.48, 0.48], 0.88, -1.18, 0.18, chassisMat, 0xff4500);
     const reactorCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 1), weakCoreMat);
     reactorCore.position.set(0, 1.48, -0.46);
     bodyGroup.add(reactorCore);
@@ -376,6 +392,8 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
       })
     );
     shieldDome.scale.set(1.05, 0.82, 1.18);
+    shieldDome.add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.73, 1), new THREE.MeshBasicMaterial({ color: 0x7dd3fc, wireframe: true, transparent: true, opacity: 0.45, depthWrite: false })));
+    addPlasmaThrusters(bodyGroup, [-0.24, 0.24], -0.02, -0.46, 0.09, chassisMat, 0x38bdf8);
     setLayerRecursive(shieldDome, 1);
     bodyGroup.add(shieldDome);
   } else if (type === 'splitter_rover') {
@@ -433,6 +451,7 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
     shell.castShadow = true;
     bodyGroup.add(shell);
 
+    addPlasmaThrusters(bodyGroup, [0], 0.28, -0.34, 0.1, chassisMat, 0xfbbf24);
     const bigEye = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.08, 10), sensorMat);
     bigEye.rotation.x = Math.PI / 2;
     bigEye.position.set(0, 0.32, 0.33);
@@ -446,9 +465,8 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
       for (const sz of [-0.2, 0.2]) {
         const wGrp = new THREE.Group();
         wGrp.position.set(sx * 0.33, 0.15, sz);
-        const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.12, 10), chassisMat);
-        tire.rotation.z = Math.PI / 2;
-        wGrp.add(tire);
+        const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.12, 10), chassisMat); tire.rotation.z = Math.PI / 2; wGrp.add(tire);
+        attachTireTreads(wGrp, 0.15, 0.12, darkGreyMat, hazardYellowMat);
         bodyGroup.add(wGrp);
         wheelsOrRotors.push(wGrp);
       }
@@ -563,6 +581,7 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
     hull.castShadow = true;
     bodyGroup.add(hull);
 
+    addPlasmaThrusters(bodyGroup, [-0.5, 0.5], 0.9, -1.22, 0.19, chassisMat, 0xff3b30);
     const bridge = new THREE.Mesh(new RoundedBoxGeometry(1.22, 0.44, 0.82, 3, 0.07), siegeMat);
     bridge.position.set(0, 1.42, 0.34);
     bridge.castShadow = true;
@@ -734,10 +753,10 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
         depthWrite: false,
       })
     );
-    shieldDome.position.set(0, 0.58, 0);
-    shieldDome.scale.set(0.95, 0.68, 1.18);
-    setLayerRecursive(shieldDome, 1);
-    bodyGroup.add(shieldDome);
+    shieldDome.position.set(0, 0.58, 0); shieldDome.scale.set(0.95, 0.68, 1.18);
+    shieldDome.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.77, 1), new THREE.MeshBasicMaterial({ color: 0x7dd3fc, wireframe: true, transparent: true, opacity: 0.38, depthWrite: false })));
+    addPlasmaThrusters(bodyGroup, [-0.52, 0.52], 0.46, -1.32, 0.2, chassisMat, 0x38bdf8);
+    setLayerRecursive(shieldDome, 1); bodyGroup.add(shieldDome);
   } else {
     // ==================== 11. STAGE 4 FINAL BOSS: OMEGA ARK OVERLORD (欧米茄·终末方舟母舰) ====================
     bodyGroup.scale.setScalar(bp.scale);
@@ -795,6 +814,7 @@ export function createEnemyRig(type: EnemyType): EnemyRig {
         roughness: 0.12,
       })
     );
+    addPlasmaThrusters(bodyGroup, [-0.58, 0, 0.58], 0.92, -1.32, 0.2, chassisMat, 0xff2a1a);
     arkCore.position.set(0, 1.72, -0.52);
     bodyGroup.add(arkCore);
     weakPointCore = arkCore;

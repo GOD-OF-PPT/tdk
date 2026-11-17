@@ -144,6 +144,14 @@ async function runSuite() {
     assert.equal(snap.selectedPadId, null, 'Clicking blank map area should cancel selection');
     console.log('✓ Tower sell refund (+75%) & blank-area deselect verified');
 
+    await page.waitForSelector('#wave-intel-bar');
+    await page.mouse.click(pad01Pt.x, pad01Pt.y);
+    await page.waitForSelector('#btn-target-priority');
+    await page.click('#btn-target-priority');
+    snap = await page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
+    assert.equal(snap.selectedTower.targetPriority, 'strongest');
+    await page.click('#btn-target-priority'); await page.click('#btn-target-priority'); await page.click('#btn-target-priority');
+    await page.mouse.click(720, 120);
     // Start Wave 1 & clear it!
     await page.click('#btn-start-wave');
     await page.evaluate(() => {

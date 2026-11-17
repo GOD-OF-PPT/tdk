@@ -33,6 +33,7 @@ import {
 } from '../render/TowerFactory';
 import type {
   CommanderSkillId,
+  TargetPriority,
   CommanderSkillSnapshot,
   CompiledLane,
   EnemyInstance,
@@ -943,6 +944,13 @@ export class GameEngine {
     return true;
   }
 
+  public cycleSelectedTowerPriority(): TargetPriority | null {
+    if (this.mode !== 'playing' || !this.selectedPadId) return null;
+    const tower = this.towers.get(this.selectedPadId); if (!tower) return null;
+    const order: TargetPriority[] = ['first', 'strongest', 'weakest', 'shielded'];
+    const next = order[(order.indexOf(tower.targetPriority ?? 'first') + 1) % order.length];
+    tower.targetPriority = next; tower.targetEnemyId = null; this.audio.playUiClick(); this.emitSnapshot(); return next;
+  }
   public sellSelectedTower(): boolean {
     if ((this.mode !== 'playing' && this.mode !== 'paused') || !this.selectedPadId) return false;
     const tower = this.towers.get(this.selectedPadId);
@@ -1713,6 +1721,7 @@ export class GameEngine {
     };
 
     this.syncEnemyShieldVisuals(inst);
+    this.progression.discoverCodex(type);
     this.enemies.push(inst);
     return inst;
   }
@@ -2195,6 +2204,9 @@ export class GameEngine {
         continue;
       }
 
+      if (e.isBoss && e.hp > 0 && e.hp < e.maxHp * 0.48 && Math.random() < dt * 3.2) this.vfx.spawnHitSparks(e.worldPos.clone().setY(1.15), true);
+      const baseSc = ENEMY_BLUEPRINTS[e.type].scale, jolt = e.hitRecoil * 0.11;
+      e.rig.bodyGroup.scale.set(baseSc * (1 + jolt), baseSc * (1 - jolt * 0.85), baseSc * (1 + jolt));
       const s = sampleLaneAtDistance(lane, e.distanceTraveled);
       const nx = -s.tz;
       const nz = s.tx;
@@ -2383,11 +2395,9 @@ export class GameEngine {
       }
 
       // Target acquisition: immediately drop dead or out-of-range enemies!
-      let target = this.findValidTarget(tower.targetEnemyId, tower.worldPos, stats.range);
-      if (!target) {
-        target = this.acquireBestTarget(tower.worldPos, stats.range);
-        tower.targetEnemyId = target ? target.id : null;
-      }
+      const prio: TargetPriority = tower.targetPriority ?? 'first';
+      let target = prio === 'first' ? this.findValidTarget(tower.targetEnemyId, tower.worldPos, stats.range) : null;
+      if (!target) { target = this.acquireBestTarget(tower.worldPos, stats.range, prio); tower.targetEnemyId = target ? target.id : null; }
 
       if (!target) {
         rig.turretYaw.rotation.y += Math.sin(this.elapsedStationTime * 0.8 + tower.worldPos.x) * dt * 0.25;
@@ -2647,6 +2657,7 @@ export class GameEngine {
     spawnFusionBurn: boolean
   ): void {
     this.audio.playMortarImpact();
+    this.cinematics.addCameraShake(0.042);
 
     if (spawnFusionBurn) {
       const tech = this.progression.getComputedTechModifiers();
@@ -2853,8 +2864,8 @@ export class GameEngine {
         enemy.shieldHp = 0;
         remainingRaw = Math.max(2, Math.round((shieldDmg - absorbed) / shieldBonus));
         this.syncEnemyShieldVisuals(enemy);
-        this.vfx.spawnShieldBreak(enemy.worldPos);
-        this.audio.playShieldBreak();
+        this.vfx.spawnShieldBreak(enemy.worldPos); this.audio.playShieldBreak();
+        const sbPt = this.projectWorldToScreen(enemy.worldPos); this.callbacks.onComboCallout?.(sbPt.x, sbPt.y - 28, '🛡护盾击碎!', '#38BDF8', 1);
       }
     }
 
@@ -2893,8 +2904,8 @@ export class GameEngine {
     enemy.rig.hpFillMesh.scale.x = Math.max(0.001, enemy.hp / enemy.maxHp);
 
     // Hit feedback: brief armor flash, subtle backward recoil, metallic sparks
-    enemy.hitFlashTimer = 0.085;
-    enemy.hitRecoil = 1.0;
+    enemy.hitFlashTimer = 0.085; enemy.hitRecoil = 1.0;
+    if (finalDamage >= 65 || (sourceTower && sourceTower.type === 'mortar')) { const rec = enemy as unknown as { _lastDmgPop?: number }; if (this.combatSimElapsed - (rec._lastDmgPop ?? -10) >= 0.16) { rec._lastDmgPop = this.combatSimElapsed; const dPt = this.projectWorldToScreen(enemy.worldPos), isBig = finalDamage >= 130; this.callbacks.onComboCallout?.(dPt.x + ((enemy.hp % 7) - 3) * 5, dPt.y - 20, isBig ? `💥-${finalDamage}` : `-${finalDamage}`, isBig ? '#FDE047' : '#F8FAFC', 1); } }
     const hitPos = enemy.worldPos.clone().setY(enemy.isFlying ? 0.85 : 0.55);
     const isHeavyMetal = enemy.type === 'drill' || enemy.type === 'elite_drill' || enemy.isBoss;
     this.vfx.spawnHitSparks(hitPos, isHeavyMetal);
@@ -3127,20 +3138,18 @@ export class GameEngine {
     return d <= range + (e.isBoss ? 0.65 : 0.15) ? e : null;
   }
 
-  private acquireBestTarget(origin: THREE.Vector3, range: number): EnemyInstance | null {
-    let best: EnemyInstance | null = null;
-    let bestRemainingDist = Infinity;
-
+  private acquireBestTarget(origin: THREE.Vector3, range: number, priority: TargetPriority = 'first'): EnemyInstance | null {
+    let best: EnemyInstance | null = null, bestScore = -Infinity;
     for (const e of this.enemies) {
       if (e.dead || e.hp <= 0) continue;
       const d = Math.hypot(e.worldPos.x - origin.x, e.worldPos.z - origin.z);
       if (d <= range + (e.isBoss ? 0.65 : 0.15)) {
-        const laneLen = this.compiledLanes[e.laneIndex]?.totalLength ?? 1;
-        const remainingDist = Math.max(0, laneLen - e.distanceTraveled);
-        if (remainingDist < bestRemainingDist) {
-          bestRemainingDist = remainingDist;
-          best = e;
-        }
+        const laneLen = this.compiledLanes[e.laneIndex]?.totalLength ?? 1, prog = -Math.max(0, laneLen - e.distanceTraveled);
+        let score = prog;
+        if (priority === 'strongest') score = e.hp + e.shieldHp * 1.2 + e.armor * 400 + (e.isBoss ? 5000 : 0) + prog * 0.01;
+        else if (priority === 'weakest') score = -(e.hp + e.shieldHp) + prog * 0.05;
+        else if (priority === 'shielded') score = (e.shieldHp > 0 ? 10000 + e.shieldHp : 0) + (e.fluxTimer <= 0 ? 500 : 0) + prog;
+        if (score > bestScore) { bestScore = score; best = e; }
       }
     }
     return best;
@@ -3480,6 +3489,9 @@ export class GameEngine {
           mechanicTag: t4BranchCfg ? t4BranchCfg.mechanicTag : null,
           overdriven: (tw.overdriveTimer ?? 0) > 0,
           auraBoosted: (tw.auraHasteBonus ?? 0) > 0,
+          targetPriority: tw.targetPriority ?? 'first',
+          kills: tw.kills,
+          totalDamage: tw.totalDamage,
           t4BranchOptions: selectedTowerBranchOptions,
         };
       }
@@ -3530,8 +3542,27 @@ export class GameEngine {
       ? this.waveIndex + 1
       : Math.min(totalWaves, this.waveIndex + 1);
 
+    let nextWaveIntel: UISnapshot['nextWaveIntel'] = null;
+    if (!this.waveInProgress) {
+      const nw = this.getActiveWaveConfig();
+      if (nw) {
+        const counts = new Map<EnemyType, number>();
+        for (const g of nw.groups) counts.set(g.enemyType, (counts.get(g.enemyType) ?? 0) + g.count);
+        const parts: string[] = [], tagSet = new Set<string>();
+        for (const [et, cnt] of counts.entries()) {
+          const ebp = ENEMY_BLUEPRINTS[et]; parts.push(`${ebp.name}×${cnt}`);
+          if (ebp.isFlying) tagSet.add('✈空军'); if ((ebp.maxShield ?? 0) > 0) tagSet.add('🛡护盾'); if (ebp.armor >= 0.3) tagSet.add('🪨重甲');
+          if (et === 'splitter_rover') tagSet.add('🧬裂殖'); if (et === 'repair_drone') tagSet.add('🔧维修'); if (ebp.isBoss) tagSet.add('☠首领');
+        }
+        nextWaveIntel = { summary: parts.slice(0, 3).join(' · ') + (parts.length > 3 ? ' 等' : ''), tags: [...tagSet], hasBoss: nw.hasBoss, hasElite: nw.hasElite };
+      }
+    }
+    let mvpTowerSummary: string | null = null, bestDmg = -1;
+    for (const t of this.towers.values()) if (t.totalDamage > bestDmg) { bestDmg = t.totalDamage; const bp = TOWER_BLUEPRINTS[t.type], nm = t.tier === 4 && t.branch ? bp.branches[t.branch].name : bp.name; mvpTowerSummary = `${nm}（击杀 ${t.kills} · 总伤 ${t.totalDamage}）`; }
     return {
       mode: this.mode,
+      nextWaveIntel,
+      mvpTowerSummary,
       stageId: this.currentStageId,
       stageCode: this.currentStage.codeName,
       stageName: this.currentStage.name,

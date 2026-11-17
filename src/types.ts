@@ -11,6 +11,7 @@ export type TowerType = 'autocannon' | 'mortar' | 'magnetic';
 export type TowerTier = 1 | 2 | 3 | 4;
 
 export type TowerBranch = 'A' | 'B';
+export type TargetPriority = 'first' | 'strongest' | 'weakest' | 'shielded';
 
 export type EnemyType =
   | 'rover'
@@ -323,6 +324,7 @@ export interface TowerInstance {
   tier: TowerTier;
   isHighGround?: boolean;
   branch?: TowerBranch | null;
+  targetPriority?: TargetPriority;
   overdriveTimer?: number;
   auraHasteBonus?: number;
   spinUpStacks?: number;
@@ -562,6 +564,8 @@ export interface UISnapshot {
   armedSkillId: CommanderSkillId | null;
   skills: CommanderSkillSnapshot[];
   activeComboCount: number;
+  nextWaveIntel?: { summary: string; tags: string[]; hasBoss: boolean; hasElite: boolean } | null;
+  mvpTowerSummary?: string | null;
   selectedTowerBranchOptions: [T4BranchOptionSnapshot, T4BranchOptionSnapshot] | null;
   progression: ProgressionSnapshot;
   selectedTower: {
@@ -595,6 +599,9 @@ export interface UISnapshot {
     mechanicTag?: string | null;
     overdriven?: boolean;
     auraBoosted?: boolean;
+    targetPriority?: TargetPriority;
+    kills?: number;
+    totalDamage?: number;
     t4BranchOptions?: [T4BranchOptionSnapshot, T4BranchOptionSnapshot] | null;
   } | null;
   bossStatus: {

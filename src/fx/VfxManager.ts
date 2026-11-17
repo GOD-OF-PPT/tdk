@@ -95,6 +95,10 @@ export class VfxManager {
   private sparkGeo = new THREE.SphereGeometry(0.085, 6, 6);
   private dustGeo = new THREE.SphereGeometry(0.14, 7, 6);
   private debrisGeo = new THREE.BoxGeometry(0.24, 0.1, 0.3);
+  private brassCasingGeo = new THREE.CylinderGeometry(0.026, 0.026, 0.11, 6);
+  private brassCasingMat = makeToonMaterial(0xfbbf24, { emissive: 0xd97706, emissiveIntensity: 0.35, metallicStep: true });
+  private shieldShardGeo = new THREE.OctahedronGeometry(0.09, 0);
+  private shieldShardMat = new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.9 });
   private rustDebrisMat = makeToonMaterial(0x9b392d);
   private greyDebrisMat = makeToonMaterial(0x353844, { metallicStep: true });
 
@@ -184,6 +188,9 @@ export class VfxManager {
     this.vfxScene.add(mesh);
 
     this.tracers.push({ mesh, mat, life: 0, maxLife: 0.085, maxOpacity: 0.95 });
+    this.spawnFlashBall(to, 0xfef08a, 0.18, 0.065);
+    this.spawnGroundRing(new THREE.Vector3(to.x, 0.09, to.z), 0xffbe3b, 0.12, 0.58, 0.14, 0.55);
+    if (this.debris3D.length < 42) { const shell = new THREE.Mesh(this.brassCasingGeo, this.brassCasingMat); shell.position.copy(from); const dir = to.clone().sub(from).normalize(); const sideX = -dir.z * (Math.random() > 0.5 ? 1 : -1), sideZ = dir.x * (Math.random() > 0.5 ? 1 : -1); this.solidScene.add(shell); this.debris3D.push({ mesh: shell, vel: new THREE.Vector3(sideX * (1.8 + Math.random()), 2.4 + Math.random() * 1.1, sideZ * (1.8 + Math.random())), rotVel: new THREE.Vector3(14, 11, 18), life: 0, maxLife: 0.46 }); }
   }
 
   /**
@@ -239,8 +246,10 @@ export class VfxManager {
 
   public spawnMortarImpact(x: number, z: number, radius: number): void {
     const pos = new THREE.Vector3(x, 0.08, z);
-    this.spawnGroundRing(pos, 0x22d3ee, 0.35, radius * 2.05, 0.36);
-    this.spawnFlashBall(new THREE.Vector3(x, 0.35, z), 0x67e8f9, radius * 0.72, 0.18);
+    this.spawnGroundRing(pos, 0x22d3ee, 0.35, radius * 2.15, 0.38); this.spawnGroundRing(pos, 0xe0f2fe, 0.2, radius * 1.35, 0.24, 0.85);
+    this.spawnFlashBall(new THREE.Vector3(x, 0.35, z), 0x67e8f9, radius * 0.78, 0.2);
+    const domeGeo = new THREE.SphereGeometry(radius * 0.76, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5); const domeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.62, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); const dome = new THREE.Mesh(domeGeo, domeMat); dome.position.set(x, 0.06, z); this.vfxScene.add(dome); this.tracers.push({ mesh: dome, mat: domeMat, life: 0, maxLife: 0.24, maxOpacity: 0.62 });
+    this.spawnLunarDustRing(new THREE.Vector3(x, 0.06, z), 8, radius * 0.7);
 
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2 + Math.random() * 0.3;
@@ -696,6 +705,8 @@ export class VfxManager {
     ring.lookAt(to);
     this.vfxScene.add(ring);
     this.tracers.push({ mesh: ring, mat: ringMat, life: 0, maxLife: 0.14, maxOpacity: 0.82 });
+    for (const frac of [0.42, 0.72]) { const mGeo = new THREE.TorusGeometry(0.28, 0.028, 6, 16); const mMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.78, depthWrite: false }); const mRing = new THREE.Mesh(mGeo, mMat); mRing.position.copy(from).lerp(to, frac); mRing.lookAt(to); this.vfxScene.add(mRing); this.tracers.push({ mesh: mRing, mat: mMat, life: 0, maxLife: 0.18, maxOpacity: 0.78 }); }
+    this.spawnGroundRing(new THREE.Vector3(to.x, 0.1, to.z), 0x38bdf8, 0.25, 1.65, 0.22, 0.82);
   }
 
   /**
@@ -704,7 +715,8 @@ export class VfxManager {
   public spawnWeakPointCrit(pos: THREE.Vector3): void {
     const hit = pos.clone();
     if (hit.y < 0.45) hit.y = 0.55;
-    this.spawnFlashBall(hit, 0xfde047, 0.28, 0.12);
+    this.spawnFlashBall(hit, 0xfde047, 0.38, 0.14);
+    this.spawnGroundRing(new THREE.Vector3(hit.x, 0.1, hit.z), 0xfde047, 0.2, 1.45, 0.2, 0.88);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 + Math.random() * 0.4;
       this.spawnSpark(
@@ -723,7 +735,8 @@ export class VfxManager {
   public spawnShieldBreak(pos: THREE.Vector3): void {
     this.spawnGroundRing(new THREE.Vector3(pos.x, 0.1, pos.z), 0x38bdf8, 0.35, 2.2, 0.24, 0.78);
     const center = pos.clone().setY(0.65);
-    this.spawnFlashBall(center, 0x67e8f9, 0.32, 0.13);
+    this.spawnFlashBall(center, 0x67e8f9, 0.42, 0.15);
+    for (let sIdx = 0; sIdx < 5 && this.debris3D.length < 48; sIdx++) { const sa = (sIdx / 5) * Math.PI * 2; const shard = new THREE.Mesh(this.shieldShardGeo, this.shieldShardMat); shard.position.copy(center); this.solidScene.add(shard); this.debris3D.push({ mesh: shard, vel: new THREE.Vector3(Math.cos(sa) * 2.6, 2.2 + Math.random(), Math.sin(sa) * 2.6), rotVel: new THREE.Vector3(10, 14, 9), life: 0, maxLife: 0.38 }); }
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
       this.spawnSpark(
@@ -1165,8 +1178,8 @@ export class VfxManager {
         const prevPos = s.orientAlongVelocity ? s.group.position.clone() : null;
         s.elapsed += dt;
         const u = Math.min(1, s.elapsed / s.duration);
-        s.group.position.lerpVectors(s.start, s.end, u);
-        s.group.position.y += 4 * s.arcHeight * u * (1 - u);
+        s.group.position.lerpVectors(s.start, s.end, u); s.group.position.y += 4 * s.arcHeight * u * (1 - u);
+        if (this.sparks.length < 90 && Math.random() < 0.65) this.spawnSpark(s.group.position.clone(), new THREE.Vector3((Math.random() - 0.5) * 0.5, -0.3, (Math.random() - 0.5) * 0.5), s.orientAlongVelocity ? 0xfbbf24 : 0x67e8f9, 0.18, 0.8);
         if (prevPos && s.group.position.distanceToSquared(prevPos) > 0.0001) {
           const lookTarget = s.group.position.clone().multiplyScalar(2).sub(prevPos);
           s.group.lookAt(lookTarget);
@@ -1407,7 +1420,7 @@ export class VfxManager {
 
     this.sparkGeo.dispose();
     this.dustGeo.dispose();
-    this.debrisGeo.dispose();
+    this.debrisGeo.dispose(); this.brassCasingGeo.dispose(); this.brassCasingMat.dispose(); this.shieldShardGeo.dispose(); this.shieldShardMat.dispose();
     this.rustDebrisMat.dispose();
     this.greyDebrisMat.dispose();
   }

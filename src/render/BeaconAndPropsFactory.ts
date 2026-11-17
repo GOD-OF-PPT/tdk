@@ -1451,14 +1451,8 @@ export function buildLunarStationEnvironment(
 
   // 7. Tactical Attack Range Ring & Selection Ring (under vfxRoot -> zero outline!)
   const rangeRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.965, 1.0, 64),
-    new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.64,
-      depthWrite: false,
-    })
+    new THREE.CircleGeometry(1.0, 64),
+    new THREE.MeshBasicMaterial({ map: tex.rangeDisc, color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.84, depthWrite: false })
   );
   rangeRing.rotation.x = -Math.PI / 2;
   rangeRing.visible = false;
