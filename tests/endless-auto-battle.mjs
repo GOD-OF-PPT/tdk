@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { verifyEndgameBalance } from './endgame-balance.mjs';
 
 export async function verifySupplyControlsLayout(page) {
   const layout = await page.evaluate(() => {
@@ -45,7 +46,7 @@ export async function verifySupplyControlsLayout(page) {
 export async function verifyCrystalBalance(page) {
   await page.evaluate(() => {
     const game = window.__LUNAR_BEACON_GAME__;
-    game.getProgression().addCrystals(20);
+    game.getProgression().addCrystals(40);
     game.notifyProgressionUpdated();
   });
   const before = await page.evaluate(() => {
@@ -57,6 +58,8 @@ export async function verifyCrystalBalance(page) {
   const after = await page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
   assert.equal(after.persistentCrystals, before.bank - 5, 'Crystal protocol deducts five stored crystals');
   assert.equal(after.runCrystalProtocolLevel, 1);
+  assert.equal(after.crystalProtocolCost, 8, 'The next protocol price escalates after a purchase');
+  assert.equal(await page.locator('#cost-supply-crys').textContent(), '8💎');
   assert.equal(after.crystals, before.runCrystals, 'Spending reserves does not change the run-earned reward counter');
   assert.equal(Number(await page.locator('#val-crystals').textContent()), after.persistentCrystals,
     'Crystal spending updates the top balance immediately');
@@ -68,8 +71,10 @@ export async function verifyCrystalBalance(page) {
   await page.click('#btn-supply-crystal');
   await page.click('#btn-supply-crystal');
   const repeated = await page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
-  assert.equal(repeated.persistentCrystals, before.bank - 15);
+  assert.equal(repeated.persistentCrystals, before.bank - 24, 'Three protocols charge 5 + 8 + 11 crystals');
   assert.equal(repeated.runCrystalProtocolLevel, 3);
+  assert.equal(repeated.crystalProtocolCost, 14);
+  assert.equal(await page.locator('#cost-supply-crys').textContent(), '14💎');
   assert.equal(Number(await page.locator('#val-crystals').textContent()), repeated.persistentCrystals,
     'Repeated spending is not delayed by number animations');
 
@@ -112,6 +117,7 @@ export async function verifyEndlessAutoBattle(page, { mobile = false, screenshot
   assert.equal(await page.locator('#btn-auto-battle').getAttribute('aria-pressed'), 'false');
   await verifySupplyControlsLayout(page);
   if (!mobile) {
+    await verifyEndgameBalance(page);
     await verifyCrystalBalance(page);
     await page.evaluate(() => window.__LUNAR_BEACON_GAME__.startNewMission(false));
   }

@@ -639,6 +639,9 @@ export interface UISnapshot {
     nextOverclockDamage?: number | null;
     maxBulkOverclockCount?: number;
     bulkOverclockCost?: number;
+    formationBonusPct?: number;
+    gridSyncLevel?: number;
+    deployedTowerCount?: number;
     t4BranchOptions?: [T4BranchOptionSnapshot, T4BranchOptionSnapshot] | null;
   } | null;
   bossStatus: {

@@ -146,13 +146,13 @@ export const APEX_MODULES: Record<ApexTechId, ApexTechConfig> = {
   apex_firepower: {
     id: 'apex_firepower',
     name: '♾ 奇点武备谐振',
-    summary: '无限等级：每级全塔与技能总伤 +8%，每5级附加 +0.4% 最大生命破甲斩杀',
-    baseCost: 14,
-    costStep: 4,
+    summary: '无限等级：每级全塔总伤 +7%，并提高对精英/首领的重型克制增幅（需配合多塔阵列）',
+    baseCost: 16,
+    costStep: 5,
     formatEffect: (lv: number) => {
-      const pct = lv * 8;
-      const giant = (Math.min(20, Math.floor(lv / 5)) * 0.4).toFixed(1);
-      return `总伤 +${pct}% · 巨兽斩杀 +${giant}%最大生命`;
+      const pct = lv * 7;
+      const giantCap = Math.min(95, Math.floor(lv / 3) * 8);
+      return `总伤 +${pct}% · 精英/首领克制上限 +${giantCap}%`;
     },
   },
   apex_bounty: {
@@ -669,7 +669,7 @@ export class ProgressionManager {
     const discSteps = [0, 0.05, 0.1, 0.15, 0.2, 0.24, 0.28, 0.32, 0.36];
 
     return {
-      damageMultiplier: (dmgSteps[kc] ?? 1) * (1 + apexFp * 0.08),
+      damageMultiplier: (dmgSteps[kc] ?? 1) * (1 + Math.min(20, apexFp) * 0.07 + Math.max(0, apexFp - 20) * 0.035),
       fireRateMultiplier: rateSteps[sd] ?? 1,
       rangeMultiplier: rngSteps[sd] ?? 1,
       bonusInitialGold: goldSteps[rp] ?? 0,

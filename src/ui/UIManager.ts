@@ -956,7 +956,9 @@ export class UIManager {
       const cAfford = snap.persistentCrystals >= cCost;
       supCrysBtn.classList.toggle('unready', !cAfford);
       const lbl = supCrysBtn.querySelector('#lbl-supply-crys');
+      const cst = supCrysBtn.querySelector('#cost-supply-crys');
       if (lbl) lbl.textContent = cLv > 0 ? `💎裂变+${cLv}` : '💎裂变';
+      if (cst) cst.textContent = `${cCost}💎`;
     }
 
     const comboPill = this.skillsSlotHost.querySelector<HTMLElement>('#combo-live-pill');
@@ -1107,7 +1109,10 @@ export class UIManager {
       const ocCost = tw.overclockCost ?? null;
       const canAffordOc = tw.tier === 4 && ocCost !== null && snap.gold >= ocCost;
       const bulkOcN = tw.maxBulkOverclockCount ?? 0;
-      const sig = `inspect:${tw.id}:t${tw.tier}:oc${ocLv}:br${tw.branch ?? '0'}:pr${prioKey}:k${kCount}:d${Math.floor(dTotal / 25)}:dmg${tw.damage}:rng${tw.range.toFixed(1)}:hg${Boolean(tw.isHighGround)}:afford${canAffordUpgrade}:ocAf${canAffordOc}:ocBulk${bulkOcN}:cost${tw.upgradeCost}:brAf${brAffordKey}:stun${tw.isStunned}:od${Boolean(tw.overdriven)}:au${Boolean(tw.auraBoosted)}`;
+      const formPct = tw.formationBonusPct ?? 0;
+      const syncLv = tw.gridSyncLevel ?? 0;
+      const depCnt = tw.deployedTowerCount ?? 1;
+      const sig = `inspect:${tw.id}:t${tw.tier}:oc${ocLv}:fm${formPct}:sy${syncLv}:dp${depCnt}:br${tw.branch ?? '0'}:pr${prioKey}:k${kCount}:d${Math.floor(dTotal / 25)}:dmg${tw.damage}:rng${tw.range.toFixed(1)}:hg${Boolean(tw.isHighGround)}:afford${canAffordUpgrade}:ocAf${canAffordOc}:ocBulk${bulkOcN}:cost${tw.upgradeCost}:brAf${brAffordKey}:stun${tw.isStunned}:od${Boolean(tw.overdriven)}:au${Boolean(tw.auraBoosted)}`;
       if (this.lastTraySig === sig) return;
       this.lastTraySig = sig;
 
@@ -1270,7 +1275,11 @@ export class UIManager {
               <span class="cost-badge">● ${costVal}</span>
             </div>
             <div class="up-btn-gain">
-              伤害 +${dmgGain} (×1.145) · 攻速/射程/穿甲持续突破
+              ${
+                depCnt < 4 && ocLv >= 6
+                  ? `伤害 +${dmgGain} · ⚠单塔过热衰减（部署三系6塔同步超频可激活阵列谐振）`
+                  : `伤害 +${dmgGain} · 6塔同步 Lv.${syncLv}（阵列谐振 +${formPct}%）`
+              }
             </div>
           </button>
           ${bulkHtml}
@@ -1286,6 +1295,7 @@ export class UIManager {
               ${tw.isHighGround ? `<span class="highground-chip">▲高地增程</span>` : ''}
               ${tw.overdriven ? `<span class="overdrive-chip">⚡超载+45%攻速</span>` : ''}
               ${tw.auraBoosted ? `<span class="aura-chip">◈矩阵+15%攻速</span>` : ''}
+              ${formPct > 0 ? `<span class="aura-chip" title="三系协同与多塔同步超频谐振加成">◈阵列谐振+${formPct}%</span>` : ''}
               ${tw.isStunned ? `<span class="stun-chip">震荡停机中</span>` : ''}
             </div>
             <div class="sheet-head-actions">

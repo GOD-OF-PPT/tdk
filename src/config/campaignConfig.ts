@@ -880,22 +880,30 @@ export interface EndlessWaveScale {
 
 export function getEndlessScaling(waveNumber: number): EndlessWaveScale {
   const w = Math.max(1, waveNumber);
-  // Smooth 3-phase endless HP curve tuned for Lv.8 Tech + T4 Infinite Overclock + Apex Research (W1 -> W100+)
+  // 4-phase Endless curve calibrated for 12-tower combined-arms formations (anti-solo, W1 -> W100+):
+  // W20=8.6x, W40=54x, W50=135x, W70=731x, W80=1700x, W99=10035x
   let hpMultiplier = 1;
   if (w <= 20) {
-    hpMultiplier = Math.pow(1.115, w - 1);
+    hpMultiplier = Math.pow(1.12, w - 1);
   } else if (w <= 50) {
-    hpMultiplier = Math.pow(1.115, 19) * Math.pow(1.084, w - 20);
+    hpMultiplier = Math.pow(1.12, 19) * Math.pow(1.096, w - 20);
+  } else if (w <= 80) {
+    hpMultiplier = Math.pow(1.12, 19) * Math.pow(1.096, 30) * Math.pow(1.088, w - 50);
   } else {
-    hpMultiplier = Math.pow(1.115, 19) * Math.pow(1.084, 30) * Math.pow(1.064, w - 50);
+    hpMultiplier =
+      Math.pow(1.12, 19) *
+      Math.pow(1.096, 30) *
+      Math.pow(1.088, 30) *
+      Math.pow(1.098, w - 80);
   }
+  // Controlled bounty curve: avoids runaway late-game gold inflation while funding balanced 12-tower upgrades
   const goldRewardScale =
     w <= 15
       ? Math.max(0.48, 1 / (1 + (w - 1) * 0.055))
-      : Number((0.56 + (w - 15) * 0.032).toFixed(3));
+      : Math.min(1.15, Number((0.52 + (w - 15) * 0.011).toFixed(3)));
   return {
     hpMultiplier,
-    speedMultiplier: Math.min(1.42, 1 + Math.floor((w - 1) / 6) * 0.035),
+    speedMultiplier: Math.min(1.48, 1 + Math.floor((w - 1) / 5) * 0.038),
     goldRewardScale,
   };
 }
@@ -952,12 +960,30 @@ export function generateEndlessWave(waveNumber: number, laneCount = 2): WaveConf
     });
   }
 
+  // From Wave 12+, launch dedicated North-Shaft fast pincer raids so a single turret cannot cover both lanes!
+  if (w >= 12 && laneCount > 1) {
+    groups.push({
+      enemyType: 'swarm',
+      count: Math.min(34, 10 + Math.floor(w * 0.45)),
+      interval: Math.max(0.24, 0.44 - w * 0.002),
+      delayBefore: 0.35,
+      laneIndex: 1,
+    });
+    groups.push({
+      enemyType: 'shield_skimmer',
+      count: Math.min(18, 4 + Math.floor(w * 0.25)),
+      interval: Math.max(0.55, 0.92 - w * 0.004),
+      delayBefore: 0.6,
+      laneIndex: 0,
+    });
+  }
+
   if (isEliteWave) {
-    const eliteCount = Math.min(5, 1 + Math.floor(w / 4));
+    const eliteCount = Math.min(8, 1 + Math.floor(w / 5));
     groups.push({
       enemyType: 'elite_drill',
       count: eliteCount,
-      interval: 2.8,
+      interval: Math.max(1.8, 2.8 - w * 0.01),
       delayBefore: 1.0,
       laneIndex: altLane,
     });
@@ -984,20 +1010,20 @@ export function generateEndlessWave(waveNumber: number, laneCount = 2): WaveConf
       laneIndex: 0,
     });
 
-    if (w >= 25 && laneCount > 1) {
+    if (w >= 20 && laneCount > 1) {
       const subBoss = ENDLESS_BOSS_ROTATION[(rotIdx + 1) % ENDLESS_BOSS_ROTATION.length];
       groups.push({
         enemyType: subBoss,
-        count: 1,
-        interval: 1.0,
-        delayBefore: 3.4,
+        count: w >= 60 ? 2 : 1,
+        interval: 4.2,
+        delayBefore: 2.2,
         laneIndex: 1,
       });
     }
   }
 
   const scale = getEndlessScaling(w);
-  const clearGoldBonus = 80 + w * 18;
+  const clearGoldBonus = 80 + Math.round(w * 14);
   const clearCrystalBonus = isBossWave ? 5 + Math.floor(w / 20) : isEliteWave ? 2 : 1;
 
   return {

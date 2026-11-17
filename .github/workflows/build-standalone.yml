@@ -28,6 +28,7 @@ jobs:
       - run: node scripts/upgrade_v3.mjs
       - run: node scripts/upgrade_v4_bgm.mjs
       - run: node scripts/upgrade_v5_endgame.mjs
+      - run: node scripts/upgrade_v6_balance.mjs
       - run: npx tsc --noEmit
       - run: npm run build
       - name: Run E2E verification
