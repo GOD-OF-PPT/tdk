@@ -42,6 +42,59 @@ export async function verifySupplyControlsLayout(page) {
   return layout;
 }
 
+export async function verifyCrystalBalance(page) {
+  await page.evaluate(() => {
+    const game = window.__LUNAR_BEACON_GAME__;
+    game.getProgression().addCrystals(20);
+    game.notifyProgressionUpdated();
+  });
+  const before = await page.evaluate(() => {
+    const snapshot = window.__LUNAR_BEACON_GAME__.getSnapshot();
+    return { bank: snapshot.persistentCrystals, runCrystals: snapshot.crystals,
+      displayed: Number(document.querySelector('#val-crystals').textContent) };
+  });
+  await page.click('#btn-supply-crystal');
+  const after = await page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
+  assert.equal(after.persistentCrystals, before.bank - 5, 'Crystal protocol deducts five stored crystals');
+  assert.equal(after.runCrystalProtocolLevel, 1);
+  assert.equal(after.crystals, before.runCrystals, 'Spending reserves does not change the run-earned reward counter');
+  assert.equal(Number(await page.locator('#val-crystals').textContent()), after.persistentCrystals,
+    'Crystal spending updates the top balance immediately');
+  await page.click('#pill-crystal');
+  assert.equal(Number((await page.locator('#hub-crystals-val').textContent()).replace(/\D/g, '')), after.persistentCrystals,
+    'The top HUD and command hub show the same spendable reserve');
+  await page.click('#btn-close-hub');
+
+  await page.click('#btn-supply-crystal');
+  await page.click('#btn-supply-crystal');
+  const repeated = await page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
+  assert.equal(repeated.persistentCrystals, before.bank - 15);
+  assert.equal(repeated.runCrystalProtocolLevel, 3);
+  assert.equal(Number(await page.locator('#val-crystals').textContent()), repeated.persistentCrystals,
+    'Repeated spending is not delayed by number animations');
+
+  await page.evaluate(() => {
+    const game = window.__LUNAR_BEACON_GAME__;
+    game.getProgression().spendCrystalsInBattle(game.getSnapshot().persistentCrystals - 4);
+    game.notifyProgressionUpdated();
+  });
+  await page.waitForFunction(() => document.querySelector('#val-crystals').textContent === '4');
+  await page.click('#btn-supply-crystal');
+  const insufficient = await page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
+  assert.equal(insufficient.persistentCrystals, 4, 'An unaffordable protocol does not deduct crystals');
+  assert.equal(insufficient.runCrystalProtocolLevel, 3);
+
+  await page.evaluate(() => window.__LUNAR_BEACON_GAME__.activateMechanism('vein_ex_1'));
+  await page.waitForFunction(() => document.querySelector('#val-crystals').textContent === '5');
+  const earned = await page.evaluate(() => ({ snapshot: window.__LUNAR_BEACON_GAME__.getSnapshot(),
+    stored: JSON.parse(localStorage.getItem('lunar_beacon_save_v2')).totalCrystals }));
+  assert.equal(earned.snapshot.persistentCrystals, 5);
+  assert.equal(earned.snapshot.crystals, before.runCrystals + 1);
+  assert.equal(earned.stored, 5, 'Displayed reserves match the saved balance');
+  return { before, after: { bank: after.persistentCrystals, runCrystals: after.crystals }, repeatedBank: repeated.persistentCrystals,
+    finalBank: earned.snapshot.persistentCrystals, savedBank: earned.stored };
+}
+
 export async function verifyEndlessAutoBattle(page, { mobile = false, screenshotPath } = {}) {
   const snapshot = () => page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
   const click = selector => mobile ? page.tap(selector) : page.click(selector);
@@ -58,6 +111,10 @@ export async function verifyEndlessAutoBattle(page, { mobile = false, screenshot
   assert.equal(state.waveInProgress, false);
   assert.equal(await page.locator('#btn-auto-battle').getAttribute('aria-pressed'), 'false');
   await verifySupplyControlsLayout(page);
+  if (!mobile) {
+    await verifyCrystalBalance(page);
+    await page.evaluate(() => window.__LUNAR_BEACON_GAME__.startNewMission(false));
+  }
 
   if (mobile) {
     for (const selector of ['#btn-auto-battle', '#btn-start-wave']) {

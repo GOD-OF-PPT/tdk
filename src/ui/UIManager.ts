@@ -416,7 +416,7 @@ export class UIManager {
             <span class="stat-label">金币</span>
             <span class="stat-num" id="val-gold">260</span>
           </div>
-          <div class="stat-plate crystal clickable-pill" id="pill-crystal" title="能源晶体（点击打开工程改装科技树）">
+          <div class="stat-plate crystal clickable-pill" id="pill-crystal" title="星区晶体储备（裂变与工程改装共用，点击打开科技树）">
             <span class="stat-dot crystal-dot"></span>
             <span class="stat-label">晶体</span>
             <span class="stat-num" id="val-crystals">0</span>
@@ -651,12 +651,10 @@ export class UIManager {
       this.displayedGold = snap.gold;
     }
 
-    if (this.displayedCrystals < 0) {
-      this.displayedCrystals = snap.crystals;
-      this.elCrystals.textContent = String(snap.crystals);
-    } else if (this.displayedCrystals !== snap.crystals) {
-      this.rollNumber(this.elCrystals, this.displayedCrystals, snap.crystals);
-      this.displayedCrystals = snap.crystals;
+    const crystalBank = snap.persistentCrystals;
+    if (this.displayedCrystals !== crystalBank) {
+      this.elCrystals.textContent = String(crystalBank);
+      this.displayedCrystals = crystalBank;
     }
 
     this.elWave.textContent = snap.isEndless
@@ -1534,7 +1532,7 @@ export class UIManager {
             <div class="v-stat"><span>信标耐久</span><strong>${snap.beaconHp}/${snap.maxBeaconHp}</strong></div>
             <div class="v-stat"><span>击毁机械</span><strong>${snap.kills}</strong></div>
             <div class="v-stat"><span>结算金币</span><strong>${snap.gold}</strong></div>
-            <div class="v-stat"><span>能源晶体</span><strong>${snap.crystals}</strong></div>
+            <div class="v-stat"><span>本局获得晶体</span><strong>${snap.crystals}</strong></div>
           </div>
 
           <div class="reward-chest-box ${isClaimed ? 'claimed' : ''}">

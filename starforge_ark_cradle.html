@@ -4428,7 +4428,7 @@ void main() {
             <span class="stat-label">金币</span>
             <span class="stat-num" id="val-gold">260</span>
           </div>
-          <div class="stat-plate crystal clickable-pill" id="pill-crystal" title="能源晶体（点击打开工程改装科技树）">
+          <div class="stat-plate crystal clickable-pill" id="pill-crystal" title="星区晶体储备（裂变与工程改装共用，点击打开科技树）">
             <span class="stat-dot crystal-dot"></span>
             <span class="stat-label">晶体</span>
             <span class="stat-num" id="val-crystals">0</span>
@@ -4484,7 +4484,7 @@ void main() {
         <div class="wave-banner-title" style="color:${n}">${e}</div>
         <div class="wave-banner-sub">${t}</div>
       </div>
-    `}hideBanner(){this.bannerBox.innerHTML=``}rollNumber(e,t,n,r=``){if(t===n){e.textContent=`${n}${r}`;return}let i=performance.now(),a=o=>{let s=Math.min(1,(o-i)/320);e.textContent=`${Math.round(t+(n-t)*(1-(1-s)**3))}${r}`,s<1&&requestAnimationFrame(a)};requestAnimationFrame(a)}updateSnapshot(e){this.elSectorName.textContent=`${e.stageCode} ${e.stageName}`,this.elHubAlertPip.hidden=!e.hasHubAlert,this.elBeaconHp.textContent=`${e.beaconHp}/${e.maxBeaconHp}`,this.elBeaconHp.style.color=e.beaconHp<=6?`#FF5A67`:``,this.displayedGold<0?(this.displayedGold=e.gold,this.elGold.textContent=String(e.gold)):this.displayedGold!==e.gold&&(this.rollNumber(this.elGold,this.displayedGold,e.gold),this.displayedGold=e.gold),this.displayedCrystals<0?(this.displayedCrystals=e.crystals,this.elCrystals.textContent=String(e.crystals)):this.displayedCrystals!==e.crystals&&(this.rollNumber(this.elCrystals,this.displayedCrystals,e.crystals),this.displayedCrystals=e.crystals),this.elWave.textContent=e.isEndless?`W${e.waveNumber}·∞`:`${e.waveNumber}/${e.totalWaves}`,this.elKills.textContent=String(e.kills),this.btnSpeed.textContent=`${e.speedMultiplier}x`,this.btnSpeed.classList.toggle(`active-toggle`,e.speedMultiplier===2);let t=(e.bgmEnabled??!0)&&!e.muted;if(this.btnBgm.innerHTML=t?m_:h_,this.btnBgm.classList.toggle(`bgm-active`,t),this.btnBgm.classList.toggle(`muted-toggle`,!t),this.btnBgm.title=`星区配乐台：${e.bgmTrackLabel??`自适应配乐`} [点击展开混音台 / M键开关]`,this.btnMute.innerHTML=e.muted?v_:__,this.btnMute.classList.toggle(`muted-toggle`,e.muted),this.renderBgmPopover(e),this.bottomDock.classList.toggle(`has-active-tray`,e.mode===`playing`&&e.selectedPadId!==null),e.bossStatus){let t=Math.max(0,Math.min(100,e.bossStatus.hp/e.bossStatus.maxHp*100));this.bossBarBox.innerHTML=`
+    `}hideBanner(){this.bannerBox.innerHTML=``}rollNumber(e,t,n,r=``){if(t===n){e.textContent=`${n}${r}`;return}let i=performance.now(),a=o=>{let s=Math.min(1,(o-i)/320);e.textContent=`${Math.round(t+(n-t)*(1-(1-s)**3))}${r}`,s<1&&requestAnimationFrame(a)};requestAnimationFrame(a)}updateSnapshot(e){this.elSectorName.textContent=`${e.stageCode} ${e.stageName}`,this.elHubAlertPip.hidden=!e.hasHubAlert,this.elBeaconHp.textContent=`${e.beaconHp}/${e.maxBeaconHp}`,this.elBeaconHp.style.color=e.beaconHp<=6?`#FF5A67`:``,this.displayedGold<0?(this.displayedGold=e.gold,this.elGold.textContent=String(e.gold)):this.displayedGold!==e.gold&&(this.rollNumber(this.elGold,this.displayedGold,e.gold),this.displayedGold=e.gold);let t=e.persistentCrystals;this.displayedCrystals!==t&&(this.elCrystals.textContent=String(t),this.displayedCrystals=t),this.elWave.textContent=e.isEndless?`W${e.waveNumber}·∞`:`${e.waveNumber}/${e.totalWaves}`,this.elKills.textContent=String(e.kills),this.btnSpeed.textContent=`${e.speedMultiplier}x`,this.btnSpeed.classList.toggle(`active-toggle`,e.speedMultiplier===2);let n=(e.bgmEnabled??!0)&&!e.muted;if(this.btnBgm.innerHTML=n?m_:h_,this.btnBgm.classList.toggle(`bgm-active`,n),this.btnBgm.classList.toggle(`muted-toggle`,!n),this.btnBgm.title=`星区配乐台：${e.bgmTrackLabel??`自适应配乐`} [点击展开混音台 / M键开关]`,this.btnMute.innerHTML=e.muted?v_:__,this.btnMute.classList.toggle(`muted-toggle`,e.muted),this.renderBgmPopover(e),this.bottomDock.classList.toggle(`has-active-tray`,e.mode===`playing`&&e.selectedPadId!==null),e.bossStatus){let t=Math.max(0,Math.min(100,e.bossStatus.hp/e.bossStatus.maxHp*100));this.bossBarBox.innerHTML=`
         <div class="boss-hud-card" id="boss-hud-bar">
           <div class="boss-hud-top">
             <span>${e.bossStatus.name}</span>
@@ -4508,17 +4508,17 @@ void main() {
             <span>🎯 点击或拖拽地面锁定【轨道离子轰炸】落点</span>
             <button class="aim-cancel-btn" id="btn-cancel-skill" type="button">取消 [Esc]</button>
           </div>
-        `,this.targetingBox.querySelector(`#btn-cancel-skill`).addEventListener(`click`,()=>this.engine.cancelSkillTargeting())):this.targetingBox.innerHTML!==``&&(this.targetingBox.dataset.armed=``,this.targetingBox.innerHTML=``),this.renderCommanderSkills(e);let n=e.mode===`playing`&&!e.waveInProgress,r=e.isEndless&&[`playing`,`paused`,`boss_intro`,`legendary_reveal`].includes(e.mode);if(n||r){let t=e.nextWaveIntel?.summary??``,i=`wave_${e.stageId}_${e.waveNumber}_${e.isEndless?`inf`:e.totalWaves}_${n}_${e.autoBattleEnabled}_${t}`;if(this.nextWaveWrap.dataset.sig!==i){let t=this.nextWaveWrap.querySelector(`#btn-auto-battle`)===document.activeElement;this.nextWaveWrap.dataset.sig=i;let a=e.waveNumber===1?`▶ 开始防守 · 第 1 波`:e.isEndless?`▶ 开始下一波 (W${e.waveNumber}·∞)`:`▶ 开始下一波 (${e.waveNumber}/${e.totalWaves})`,o=e.nextWaveIntel,s=o&&o.tags.length>0?o.tags.map(e=>`<em class="wave-intel-tag">${e}</em>`).join(``):``,c=n&&o?`<div class="wave-intel-bar ${o.hasBoss?`boss-warn`:``}" id="wave-intel-bar" title="下一波来袭敌械情报（快捷键 Space 出击）"><span class="wave-intel-text">📡 下波：${o.summary}</span>${s}</div>`:``;this.nextWaveWrap.innerHTML=`
-          <div class="next-wave-pack ${r?`endless-wave-controls`:``}">
+        `,this.targetingBox.querySelector(`#btn-cancel-skill`).addEventListener(`click`,()=>this.engine.cancelSkillTargeting())):this.targetingBox.innerHTML!==``&&(this.targetingBox.dataset.armed=``,this.targetingBox.innerHTML=``),this.renderCommanderSkills(e);let r=e.mode===`playing`&&!e.waveInProgress,i=e.isEndless&&[`playing`,`paused`,`boss_intro`,`legendary_reveal`].includes(e.mode);if(r||i){let t=e.nextWaveIntel?.summary??``,n=`wave_${e.stageId}_${e.waveNumber}_${e.isEndless?`inf`:e.totalWaves}_${r}_${e.autoBattleEnabled}_${t}`;if(this.nextWaveWrap.dataset.sig!==n){let t=this.nextWaveWrap.querySelector(`#btn-auto-battle`)===document.activeElement;this.nextWaveWrap.dataset.sig=n;let a=e.waveNumber===1?`▶ 开始防守 · 第 1 波`:e.isEndless?`▶ 开始下一波 (W${e.waveNumber}·∞)`:`▶ 开始下一波 (${e.waveNumber}/${e.totalWaves})`,o=e.nextWaveIntel,s=o&&o.tags.length>0?o.tags.map(e=>`<em class="wave-intel-tag">${e}</em>`).join(``):``,c=r&&o?`<div class="wave-intel-bar ${o.hasBoss?`boss-warn`:``}" id="wave-intel-bar" title="下一波来袭敌械情报（快捷键 Space 出击）"><span class="wave-intel-text">📡 下波：${o.summary}</span>${s}</div>`:``;this.nextWaveWrap.innerHTML=`
+          <div class="next-wave-pack ${i?`endless-wave-controls`:``}">
             ${c}
-            ${r?`
+            ${i?`
               <button class="enamel-cta-btn auto-battle-btn" id="btn-auto-battle" type="button"
                 aria-pressed="${e.autoBattleEnabled}"
                 title="自动开始下一波；关闭后本波继续，结束后等待手动开始">
                 自动战斗：${e.autoBattleEnabled?`开`:`关`}
               </button>
             `:``}
-            ${n?`
+            ${r?`
               <button class="enamel-cta-btn wave-start" id="btn-start-wave" type="button" title="快捷键 [Space] 开始波次">
                 ${a}
               </button>
@@ -4803,7 +4803,7 @@ void main() {
             <div class="v-stat"><span>信标耐久</span><strong>${e.beaconHp}/${e.maxBeaconHp}</strong></div>
             <div class="v-stat"><span>击毁机械</span><strong>${e.kills}</strong></div>
             <div class="v-stat"><span>结算金币</span><strong>${e.gold}</strong></div>
-            <div class="v-stat"><span>能源晶体</span><strong>${e.crystals}</strong></div>
+            <div class="v-stat"><span>本局获得晶体</span><strong>${e.crystals}</strong></div>
           </div>
 
           <div class="reward-chest-box ${i?`claimed`:``}">
