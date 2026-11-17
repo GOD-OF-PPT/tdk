@@ -175,6 +175,12 @@ export async function verifyEndlessAutoBattle(page, { mobile = false, screenshot
   assert.equal(state.mode, 'defeat', 'Undefended endless combat reaches the actual defeat flow');
   assert.equal(state.autoBattleEnabled, false, 'Defeat turns auto battle off');
   assert.equal(state.waveInProgress, false);
+  if (await page.locator('#player-name-modal').count()) {
+    await page.fill('#player-name-input', '自动战斗验收员');
+    await page.click('#btn-save-player-name');
+    await page.waitForSelector('#sector-hub-modal');
+    await click('#btn-close-hub');
+  }
   await click('#btn-retry-defeat');
   state = await snapshot();
   assert.equal(state.autoBattleEnabled, false);

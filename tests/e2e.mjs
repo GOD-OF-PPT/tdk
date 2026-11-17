@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { verifyEndlessAutoBattle } from './endless-auto-battle.mjs';
+import { completePlayerSetup, installRankingMock, verifyLeaderboard, verifyRankingClientResilience } from './leaderboard.mjs';
 
 const BASE_URL = process.env.GAME_URL || 'http://127.0.0.1:5173';
 const SHOT_DIR = process.env.SHOT_DIR || '/tmp/lunar_shots';
@@ -32,6 +33,7 @@ async function runSuite() {
       viewport: { width: 1440, height: 900 },
       deviceScaleFactor: 1,
     });
+    await installRankingMock(desktopCtx);
     const page = await desktopCtx.newPage();
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -39,6 +41,7 @@ async function runSuite() {
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await completePlayerSetup(page);
 
     // STAGE 1: Opening Lunar Vista Fly-In & Sequential Return Beacon Boot
     let snap = await page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
@@ -427,6 +430,7 @@ async function runSuite() {
       isMobile: true,
       hasTouch: true,
     });
+    await installRankingMock(mobileCtx);
     const mPage = await mobileCtx.newPage();
     mPage.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(`[mobile] ${msg.text()}`);
@@ -434,6 +438,7 @@ async function runSuite() {
     mPage.on('pageerror', (err) => pageErrors.push(`[mobile] ${err.message}`));
 
     await mPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await completePlayerSetup(mPage);
     await mPage.waitForFunction(
       () => window.__LUNAR_BEACON_GAME__.getSnapshot().mode === 'playing',
       null,
@@ -476,6 +481,10 @@ async function runSuite() {
     console.log('✓ Mobile endless auto battle touch control and viewport verified');
 
     await mobileCtx.close();
+
+    await verifyLeaderboard(browser, BASE_URL, SHOT_DIR);
+    await verifyRankingClientResilience(browser, BASE_URL);
+    console.log('✓ Leaderboard: first endless defeat registration, unlock, persistence, tie ranks, pagination, retry, identity reuse, safe rendering and mobile layout verified');
 
     assert.equal(consoleErrors.length, 0, `Expected 0 console errors, got: ${consoleErrors.join('; ')}`);
     assert.equal(pageErrors.length, 0, `Expected 0 page errors, got: ${pageErrors.join('; ')}`);

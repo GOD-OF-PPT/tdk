@@ -2829,3 +2829,78 @@ button:disabled {
     display: none;
   }
 }
+
+/* Player registration and the online endless leaderboard. */
+.player-name-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: radial-gradient(ellipse at top, rgba(30, 58, 95, .96), rgba(5, 8, 23, .98));
+}
+.player-name-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(420px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 24px;
+  border: 2px solid #38bdf8;
+  border-radius: 18px;
+  background: var(--panel-bg);
+  box-shadow: var(--bevel-plate);
+  color: var(--cream-main);
+}
+.player-name-dialog h2 { margin: 0; font-size: 23px; }
+.player-name-dialog p { margin: 0; color: #cbd5e1; font-size: 13px; line-height: 1.6; }
+.player-name-dialog label { font-size: 13px; font-weight: 800; }
+.player-name-dialog input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 2px solid #334978;
+  border-radius: 10px;
+  background: #0d1529;
+  color: #f8fafc;
+  font: inherit;
+}
+.player-name-dialog input:focus { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.player-name-dialog .player-name-error { min-height: 20px; color: #fda4af; }
+.leaderboard-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.leaderboard-toolbar, .ranking-profile, .ranking-submission, .ranking-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.leaderboard-toolbar h3 { margin: 0 0 6px; font-size: 18px; color: #fde68a; }
+.leaderboard-toolbar p, .ranking-footnote { margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.6; }
+.ranking-profile { color: #cbd5e1; font-size: 13px; }
+.ranking-profile > span { min-width: 0; overflow-wrap: anywhere; }
+.ranking-profile strong { color: #67e8f9; }
+.ranking-my-entry { padding: 12px; border: 1px solid #334978; border-radius: 10px; background: #17223b; color: #cbd5e1; font-size: 13px; }
+.ranking-submission { justify-content: flex-start; font-size: 12px; color: #86efac; }
+.ranking-notice { margin: 0; padding: 10px; border: 1px solid #92400e; border-radius: 8px; color: #fde68a; font-size: 12px; }
+.ranking-table-wrap { width: 100%; overflow-x: auto; border: 1px solid #334155; border-radius: 10px; touch-action: pan-x pan-y; }
+.ranking-table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 12px; text-align: left; }
+.ranking-table th, .ranking-table td { padding: 10px 8px; border-bottom: 1px solid #29344e; vertical-align: middle; }
+.ranking-table th { color: #94a3b8; background: #111b30; white-space: nowrap; }
+.ranking-table td { color: #e2e8f0; }
+.ranking-table .ranking-rank { color: #fde68a; font-weight: 900; }
+.ranking-table .ranking-name { max-width: 220px; min-width: 100px; overflow-wrap: anywhere; }
+.ranking-table .ranking-self { background: rgba(14, 116, 144, .22); }
+.ranking-table .ranking-empty { text-align: center; padding: 24px 10px; color: #94a3b8; }
+.ranking-pagination { font-size: 12px; color: #94a3b8; }
+@media (max-width: 720px) {
+  .hub-header { position: relative; padding-right: 40px; }
+  .hub-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: 100%; }
+  .hub-tab-btn { justify-content: center; padding: 6px 3px; font-size: 11px; white-space: nowrap; }
+  .hub-close { position: absolute; top: 10px; right: 10px; }
+  .player-name-dialog { padding: 20px; }
+  .ranking-table th, .ranking-table td { padding: 8px 6px; }
+}

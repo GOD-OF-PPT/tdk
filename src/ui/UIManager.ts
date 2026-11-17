@@ -1,4 +1,7 @@
 import { STAGE_CONFIGS, STAGE_ORDER } from '../config/campaignConfig';
+import { LeaderboardService, RANKING_CONFIG } from '../ranking/LeaderboardService';
+import { promptPlayerName } from './PlayerNamePrompt';
+import type { RankingEntry } from '../ranking/types';
 import {
   ENEMY_BLUEPRINTS,
   ENEMY_CODEX_META,
@@ -39,6 +42,15 @@ const PRIORITY_LABELS: Record<TargetPriority, string> = {
 };
 
 type CodexSubTab = 'towers' | 'enemies' | 'mechanisms' | 'badges';
+type HubTab = 'campaign' | 'tech' | 'codex' | 'ranking';
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
+}
+
+function rankingNumber(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('zh-CN', { maximumFractionDigits: 3 }) : '—';
+}
 
 function towerSvgIcon(type: TowerType): string {
   if (type === 'autocannon') {
@@ -173,6 +185,7 @@ const EXPAND_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" 
 export class UIManager {
   private host: HTMLElement;
   private engine!: GameEngine;
+  private leaderboard: LeaderboardService;
 
   // Persistent HUD Elements
   private btnOpenHub!: HTMLButtonElement;
@@ -210,7 +223,7 @@ export class UIManager {
   private hubHost!: HTMLElement;
 
   private hubOpen = false;
-  private hubTab: 'campaign' | 'tech' | 'codex' = 'campaign';
+  private hubTab: HubTab = 'campaign';
   private codexFilter: CodexSubTab = 'towers';
   private selectedHubStageId: StageId = 'stage_01';
 
@@ -225,9 +238,18 @@ export class UIManager {
   private toastTimer = 0;
   private stampTimer = 0;
 
-  constructor(host: HTMLElement) {
+  constructor(host: HTMLElement, leaderboard: LeaderboardService) {
     this.host = host;
+    this.leaderboard = leaderboard;
     this.buildStaticSkeleton();
+    this.leaderboard.subscribe(() => {
+      if (!this.engine || !this.hubOpen || this.hubTab !== 'ranking') return;
+      const focused = document.activeElement as HTMLElement | null;
+      const focusId = focused && this.hubHost.contains(focused) ? focused.id : '';
+      this.lastHubSig = '';
+      this.renderHubModal(this.engine.getSnapshot());
+      if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
+    });
   }
 
   public bindEngine(engine: GameEngine): void {
@@ -293,13 +315,14 @@ export class UIManager {
     }
 
     if (this.hubOpen) {
-      if (ev.key === '1' || ev.key === '2' || ev.key === '3') {
-        const nextTab = ev.key === '1' ? 'campaign' : ev.key === '2' ? 'tech' : 'codex';
+      if (['1', '2', '3', '4'].includes(ev.key)) {
+        const nextTab = (['campaign', 'tech', 'codex', 'ranking'] as const)[Number(ev.key) - 1];
         if (this.hubTab !== nextTab) {
           this.engine.getAudio().playUiClick();
           this.hubTab = nextTab;
           this.lastHubSig = '';
           this.renderHubModal(this.engine.getSnapshot());
+          if (nextTab === 'ranking') void this.leaderboard.refresh();
         }
       }
       return;
@@ -354,13 +377,14 @@ export class UIManager {
     }
   };
 
-  public openHub(tab: 'campaign' | 'tech' | 'codex' = 'campaign'): void {
+  public openHub(tab: HubTab = 'campaign'): void {
     this.engine.getAudio().playUiClick();
     this.hubOpen = true;
     this.hubTab = tab;
     this.selectedHubStageId = this.engine.getCurrentStageId();
     this.lastHubSig = '';
     this.engine.setOverlayPause(true);
+    if (tab === 'ranking') void this.leaderboard.refresh();
   }
 
   public closeHub(): void {
@@ -1601,7 +1625,8 @@ export class UIManager {
     const techSig = TECH_ORDER.map((tid) => prog.techLevels[tid]).join('');
     const apexSig = APEX_ORDER.map((aid) => prog.apexLevels?.[aid] ?? 0).join('_');
     const countersSig = `${prog.counters.synergyTriggers}_${prog.counters.skillsUsed}_${prog.counters.mechanismsUsed}_${prog.counters.dualBranchCleared ? 1 : 0}_${prog.counters.maxOverclockReached ?? 0}`;
-    const hubSig = `${this.hubTab}:${this.codexFilter}:${this.selectedHubStageId}:${snap.stageId}:${prog.totalCrystals}:${prog.spentCrystals}:${prog.unlockAllSandbox ? 1 : 0}:${stagesSig}:${techSig}:${apexSig}:${countersSig}:${prog.claimedAchievementIds.length}:${prog.seenCodexIds.length}`;
+    const ranking = this.leaderboard.getState();
+    const hubSig = `${this.hubTab}:${this.codexFilter}:${this.selectedHubStageId}:${snap.stageId}:${prog.totalCrystals}:${prog.spentCrystals}:${prog.unlockAllSandbox ? 1 : 0}:${stagesSig}:${techSig}:${apexSig}:${countersSig}:${prog.claimedAchievementIds.length}:${prog.seenCodexIds.length}:${ranking.revision}`;
 
     if (this.lastHubSig === hubSig) return;
     this.lastHubSig = hubSig;
@@ -1618,7 +1643,7 @@ export class UIManager {
         ? this.renderHubCampaignTab(snap)
         : this.hubTab === 'tech'
           ? this.renderHubTechTab(snap)
-          : this.renderHubCodexTab(snap);
+          : this.hubTab === 'codex' ? this.renderHubCodexTab(snap) : this.renderLeaderboardTab();
 
     this.hubHost.innerHTML = `
       <div class="modal-mask hub-mask" id="sector-hub-modal">
@@ -1652,6 +1677,9 @@ export class UIManager {
                 <span>战地档案</span>
                 ${hasClaimableAch ? `<span class="hub-tab-pip green" aria-hidden="true"></span>` : ''}
               </button>
+              <button class="hub-tab-btn ${this.hubTab === 'ranking' ? 'active' : ''}" id="hub-tab-btn-ranking" type="button">
+                <span>${ranking.unlocked ? '排行榜' : '🔒 排行榜'}</span>${ranking.unlocked && ranking.pending ? '<span class="hub-tab-pip amber" aria-hidden="true"></span>' : ''}
+              </button>
             </div>
             <button class="sheet-close-btn hub-close" id="btn-close-hub" type="button" aria-label="关闭星区指挥台">✕</button>
           </div>
@@ -1682,8 +1710,58 @@ export class UIManager {
       this.lastHubSig = '';
       this.renderHubModal(this.engine.getSnapshot());
     });
+    this.hubHost.querySelector('#hub-tab-btn-ranking')!.addEventListener('click', () => {
+      this.engine.getAudio().playUiClick();
+      this.hubTab = 'ranking';
+      this.lastHubSig = '';
+      this.renderHubModal(this.engine.getSnapshot());
+      void this.leaderboard.refresh();
+    });
 
     this.bindHubBodyEvents();
+    if (this.hubTab === 'ranking') this.bindLeaderboardEvents();
+  }
+
+  private renderLeaderboardTab(): string {
+    const state = this.leaderboard.getState();
+    if (!state.unlocked) return `<section id="hub-panel-ranking" class="leaderboard-panel ranking-locked">
+      <h3>无尽战绩榜待解锁</h3><p>第一次在无尽模式挑战失败后，填写指挥官名字即可解锁排行榜。</p>
+      <p>首次进入可直接游玩，登记后会自动上传本局战绩，并在当前浏览器记住名字。</p>
+    </section>`;
+    const metricCells = (entry: RankingEntry) => `
+      <td class="ranking-rank">${rankingNumber(entry.rank)}</td>
+      <td class="ranking-name">${escapeHtml(entry.username)}</td>
+      <td>${rankingNumber(entry.metrics?.score)}</td>
+      <td>${rankingNumber(entry.metrics?.kills)}</td>
+      <td>${rankingNumber(entry.metrics?.duration)} 秒</td>`;
+    const rows = state.entries.map(entry => `<tr ${entry.playerId === state.myEntry?.playerId ? 'class="ranking-self"' : ''}>${metricCells(entry)}</tr>`).join('');
+    return `<section id="hub-panel-ranking" class="leaderboard-panel" aria-labelledby="leaderboard-title">
+      <div class="leaderboard-toolbar">
+        <div><h3 id="leaderboard-title">无尽最高战绩榜</h3><p>完成波次 ↓ · 击杀数 ↓ · 战斗用时 ↑，保留个人最好战绩。</p></div>
+        <button class="sandbox-unlock-btn" id="btn-refresh-ranking" type="button" ${state.loading ? 'disabled' : ''}>${state.loading ? '正在刷新…' : '刷新榜单'}</button>
+      </div>
+      <div class="ranking-profile"><span>指挥官：<strong id="ranking-player-name">${escapeHtml(state.username)}</strong></span><button class="sandbox-unlock-btn" id="btn-edit-player-name" type="button">修改名字</button></div>
+      ${!state.persistent ? '<p class="ranking-notice">当前浏览器无法保存资料，名字和待上传成绩仅在本次打开期间保留。</p>' : ''}
+      <div class="ranking-my-entry" id="ranking-my-entry">${state.myError ? escapeHtml(state.myError) : state.myEntry ? `我的名次：第 <strong>${rankingNumber(state.myEntry.rank)}</strong> 名 · 完成 ${rankingNumber(state.myEntry.metrics?.score)} 波 · 击杀 ${rankingNumber(state.myEntry.metrics?.kills)}` : '尚未上榜，完成一局无尽挑战后会自动上传成绩。'}</div>
+      <div class="ranking-submission" role="status" aria-live="polite"><span id="ranking-submission-status">${escapeHtml(state.submitting ? '正在上传本局成绩…' : state.submissionMessage)}</span>
+        ${state.pending ? `<button class="sandbox-unlock-btn" id="btn-retry-ranking" type="button" ${state.submitting ? 'disabled' : ''}>重试上传</button>` : ''}
+      </div>
+      ${state.error ? `<p class="ranking-notice" id="ranking-error" role="alert">${escapeHtml(state.error)}</p>` : ''}
+      <div class="ranking-table-wrap"><table class="ranking-table" aria-label="无尽模式排行榜"><thead><tr><th>名次</th><th>指挥官</th><th>完成波次</th><th>击杀</th><th>用时</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="5" class="ranking-empty">${state.loading ? '正在读取战绩…' : state.error ? '暂时无法读取榜单，请稍后刷新。' : '暂无战绩，来成为第一位上榜的指挥官吧。'}</td></tr>`}</tbody></table></div>
+      <div class="ranking-pagination"><button class="sandbox-unlock-btn" id="btn-ranking-prev" type="button" ${state.loading || state.offset <= 0 ? 'disabled' : ''}>上一页</button>
+        <span id="ranking-page-status">共 ${rankingNumber(state.total)} 位指挥官 · 第 ${Math.floor(state.offset / RANKING_CONFIG.pageSize) + 1} 页</span>
+        <button class="sandbox-unlock-btn" id="btn-ranking-next" type="button" ${state.loading || state.offset + RANKING_CONFIG.pageSize >= state.total || state.offset >= 10000 ? 'disabled' : ''}>下一页</button></div>
+      <p class="ranking-footnote">战斗用时按游戏内秒数计算，暂停、指挥台和演出时间不计。名字可以重复；更换浏览器或清除存储会使用新的玩家身份。</p>
+    </section>`;
+  }
+
+  private bindLeaderboardEvents(): void {
+    this.hubHost.querySelector('#btn-refresh-ranking')?.addEventListener('click', () => { void this.leaderboard.refresh(this.leaderboard.getState().offset); });
+    this.hubHost.querySelector('#btn-ranking-prev')?.addEventListener('click', () => { void this.leaderboard.refresh(this.leaderboard.getState().offset - RANKING_CONFIG.pageSize); });
+    this.hubHost.querySelector('#btn-ranking-next')?.addEventListener('click', () => { void this.leaderboard.refresh(this.leaderboard.getState().offset + RANKING_CONFIG.pageSize); });
+    this.hubHost.querySelector('#btn-retry-ranking')?.addEventListener('click', () => { void this.leaderboard.submitPending(); });
+    this.hubHost.querySelector('#btn-edit-player-name')?.addEventListener('click', () => { void promptPlayerName(this.leaderboard); });
   }
 
   private renderHubCampaignTab(snap: UISnapshot): string {

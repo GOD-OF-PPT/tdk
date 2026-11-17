@@ -1,6 +1,8 @@
 import './style.css';
 import { GameEngine } from './game/GameEngine';
 import { UIManager } from './ui/UIManager';
+import { LeaderboardService } from './ranking/LeaderboardService';
+import { promptPlayerName } from './ui/PlayerNamePrompt';
 
 declare global {
   interface Window {
@@ -29,8 +31,17 @@ function bootstrap(): void {
   }
 
   try {
-    const ui = new UIManager(uiRoot);
-    const engine = new GameEngine(canvas, {
+    const leaderboard = new LeaderboardService();
+    const ui = new UIManager(uiRoot, leaderboard);
+    let registration: Promise<void> | null = null;
+    const registerAfterDefeat = () => {
+      if (!leaderboard.needsRegistration() || registration) return;
+      engine.setOverlayPause(true);
+      registration = promptPlayerName(leaderboard).then(() => {
+        ui.openHub('ranking');
+      }).finally(() => { registration = null; });
+    };
+    const engine: GameEngine = new GameEngine(canvas, {
       onStateChange: (snap) => ui.updateSnapshot(snap),
       onInsufficientGold: (missing) => ui.showInsufficientGoldFeedback(missing),
       onInsufficientEnergy: (missing) => ui.showInsufficientEnergyFeedback(missing),
@@ -40,12 +51,28 @@ function bootstrap(): void {
         ui.showUpgradeStamp(title, hex, deltas, isLegendary),
       onBanner: (title, sub, hex) => ui.showBanner(title, sub, hex),
       onHideBanner: () => ui.hideBanner(),
+      onEndlessRunEnd: (result, reason) => {
+        if (reason === 'defeat') {
+          const wasUnlocked = leaderboard.getState().unlocked;
+          leaderboard.recordDefeat(result);
+          if (!wasUnlocked) {
+            if (leaderboard.needsRegistration()) registerAfterDefeat();
+            else ui.openHub('ranking');
+          }
+        } else if (leaderboard.getState().unlocked) leaderboard.queueResult(result);
+      },
     });
 
     ui.bindEngine(engine);
     engine.startLoop();
 
     window.__LUNAR_BEACON_GAME__ = engine;
+    window.addEventListener('pagehide', () => {
+      const result = engine.getEndlessRunResult();
+      if (result && leaderboard.getState().unlocked) leaderboard.queueResult(result);
+    });
+    if (leaderboard.needsRegistration()) registerAfterDefeat();
+    else void leaderboard.submitPending();
   } catch (err) {
     console.error('Lunar Beacon bootstrap error:', err);
     uiRoot.style.pointerEvents = 'auto';

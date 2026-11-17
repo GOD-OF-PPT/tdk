@@ -56,6 +56,7 @@ import type {
 } from '../types';
 import { type CameraPose, CinematicDirector } from './CinematicDirector';
 import { ProgressionManager } from './ProgressionManager';
+import type { EndlessRunResult, EndlessRunEndReason } from '../ranking/types';
 
 export interface EngineUICallbacks {
   onStateChange: (snapshot: UISnapshot) => void;
@@ -76,6 +77,7 @@ export interface EngineUICallbacks {
   ) => void;
   onBanner: (title: string, subtitle: string, accentHex: string) => void;
   onHideBanner: () => void;
+  onEndlessRunEnd?: (result: EndlessRunResult, reason: EndlessRunEndReason) => void;
 }
 
 export interface ComboCalloutPayloadPos {
@@ -149,6 +151,11 @@ export class GameEngine {
   private waveIndex = 0; // 0-based index
   private waveInProgress = false;
   private autoBattleEnabled = false;
+  private endlessRunStarted = false;
+  private endlessRunFinished = false;
+  private endlessRunSeconds = 0;
+  private endlessRunSerial = 0;
+  private endlessRunId = '';
   private waveElapsed = 0;
   private endlessActiveWaveConfig: WaveConfig | null = null;
   private pendingSpawns: PendingSpawn[] = [];
@@ -496,6 +503,8 @@ export class GameEngine {
     const nextCfg = STAGE_CONFIGS[stageId];
     if (!nextCfg) return;
 
+    this.finishEndlessRun('stage-change');
+
     this.cinematics.cancelAll();
     this.vfx.clearAll();
     this.clearDynamicEntities();
@@ -573,6 +582,7 @@ export class GameEngine {
   }
 
   public startNewMission(playIntro = true): void {
+    this.finishEndlessRun('restart');
     window.clearTimeout(this.bannerHideTimer);
     this.callbacks.onHideBanner();
     this.cinematics.cancelAll();
@@ -619,6 +629,10 @@ export class GameEngine {
     this.waveIndex = 0;
     this.waveInProgress = false;
     this.autoBattleEnabled = false;
+    this.endlessRunStarted = false;
+    this.endlessRunFinished = false;
+    this.endlessRunSeconds = 0;
+    this.endlessRunId = `${Date.now()}-${++this.endlessRunSerial}`;
     this.waveElapsed = 0;
     this.endlessActiveWaveConfig = null;
     this.pendingSpawns = [];
@@ -1519,6 +1533,7 @@ export class GameEngine {
     }
 
     this.waveInProgress = true;
+    if (this.isEndlessMode()) this.endlessRunStarted = true;
     this.waveElapsed = 0;
     this.pendingSpawns = [];
     const laneCount = Math.max(1, this.compiledLanes.length);
@@ -1705,6 +1720,7 @@ export class GameEngine {
       const simDt = rawDt * this.speedMultiplier * activeScale;
       this.combatSimElapsed += simDt;
       if (this.waveInProgress) {
+        if (this.isEndlessMode()) this.endlessRunSeconds += simDt;
         this.addTacticalEnergy(TACTICAL_ENERGY_CONFIG.PASSIVE_REGEN_IN_WAVE_PER_SEC * simDt, true);
       }
       this.updateCommanderSkillsAndZones(simDt);
@@ -2484,6 +2500,7 @@ export class GameEngine {
           this.pendingRocketSalvos = [];
           this.plasmaZones = [];
           this.vfx.setTacticalReticle(false);
+          this.finishEndlessRun('defeat');
           this.emitSnapshot();
           return;
         }
@@ -3738,6 +3755,26 @@ export class GameEngine {
   }
 
   // ==================== UI SNAPSHOT & AUTOMATED TEST HOOKS ====================
+
+  public getEndlessRunResult(): EndlessRunResult | null {
+    if (!this.isEndlessMode() || !this.endlessRunStarted || this.endlessRunFinished || this.endlessRunSeconds <= 0) return null;
+    return {
+      runId: this.endlessRunId,
+      completedWaves: this.waveIndex,
+      kills: this.kills,
+      duration: Math.max(.001, Number(this.endlessRunSeconds.toFixed(3))),
+      maxOverclock: Math.max(0, ...[...this.towers.values()].map(tower => tower.overclockLevel ?? 0)),
+      arsenalLevel: this.runArsenalLevel,
+      crystalProtocolLevel: this.runCrystalProtocolLevel,
+    };
+  }
+
+  private finishEndlessRun(reason: EndlessRunEndReason): void {
+    const result = this.getEndlessRunResult();
+    if (!result) return;
+    this.endlessRunFinished = true;
+    this.callbacks.onEndlessRunEnd?.(result, reason);
+  }
 
   public getSnapshot(): UISnapshot {
     let selectedTower: UISnapshot['selectedTower'] = null;
