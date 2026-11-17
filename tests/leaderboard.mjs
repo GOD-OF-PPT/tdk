@@ -4,6 +4,21 @@ export const RANKING_BASE = 'https://ranking-api-production-a8ed42bc.up.railway.
 const IDENTITY_KEY = `ranking:v1:${RANKING_BASE}:tdk`;
 const PENDING_KEY = 'lunar_beacon_ranking_pending_v1:tdk:endless';
 
+function createSignal() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve: () => resolve() };
+}
+
+async function waitForSignal(signal, description) {
+  let timer;
+  try {
+    await Promise.race([signal.promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${description}`)), 30000);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
 export async function completePlayerSetup(page, name = '自动验收指挥官') {
   await page.waitForFunction(() => document.querySelector('#player-name-modal') || window.__LUNAR_BEACON_GAME__);
   if (await page.locator('#player-name-modal').count()) {
@@ -14,21 +29,24 @@ export async function completePlayerSetup(page, name = '自动验收指挥官') 
 }
 
 export async function installRankingMock(context, { entries = [] } = {}) {
-  const state = { sessions: 0, submissions: [], reads: [], entry: null, failScores: false, failTop: false, rateLimit: false, topDelay: 0, sessionGate: null, scoreGate: null };
+  const state = { sessions: 0, submissions: [], reads: [], entry: null, failScores: false, failTop: false, rateLimit: false, topDelay: 0, sessionGate: null, scoreGate: null, scoreCaptureDelay: 0, onScore: null, onSession: null };
   const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,content-type', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
   await context.route(`${RANKING_BASE}/**`, async route => {
     const request = route.request();
     const url = new URL(request.url());
-    const send = (status, body) => route.fulfill({ status, headers: cors, contentType: 'application/json', body: JSON.stringify(body) });
+    const send = (status, body) => context.pages().length ? route.fulfill({ status, headers: cors, contentType: 'application/json', body: JSON.stringify(body) }) : Promise.resolve();
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     if (url.pathname.endsWith('/sessions')) {
       state.sessions++;
+      state.onSession?.();
       if (state.sessionGate) await state.sessionGate;
       return send(201, { playerId: 'guest-test-player', token: 'test-token', expiresAt: Math.floor(Date.now() / 1000) + 86400 });
     }
     if (url.pathname.endsWith('/scores')) {
       const payload = request.postDataJSON();
+      if (state.scoreCaptureDelay) await new Promise(resolve => setTimeout(resolve, state.scoreCaptureDelay));
       state.submissions.push(payload);
+      state.onScore?.(payload);
       assert.equal(request.headers().authorization, 'Bearer test-token');
       assert.equal(typeof payload.username, 'string');
       for (const field of ['score', 'kills', 'duration']) assert.ok(Number.isFinite(payload.metrics[field]));
@@ -168,9 +186,11 @@ export async function verifyRankingClientResilience(browser, baseUrl) {
   const mock = await installRankingMock(context);
   const page = await context.newPage();
   const errors = [];
+  const sessionSeen = createSignal();
+  mock.onSession = sessionSeen.resolve;
+  let releaseSession = () => {};
   page.on('pageerror', error => errors.push(error.message));
   try {
-    let releaseSession;
     mock.sessionGate = new Promise(resolve => { releaseSession = resolve; });
     await context.addInitScript(() => {
       localStorage.setItem('lunar_beacon_player_name_v1', '缓存指挥官');
@@ -188,6 +208,7 @@ export async function verifyRankingClientResilience(browser, baseUrl) {
       game.launchStage('endless', false); game.startNextWave(); game.debugStepSimulation(.5, false); game.startNewMission(false);
     });
     await page.waitForFunction(() => localStorage.getItem('lunar_beacon_ranking_pending_v1:tdk:endless'));
+    await waitForSignal(sessionSeen, 'the guest identity request');
     assert.equal(mock.sessions, 1, 'A cached score and a new result share one in-flight identity request');
     assert.equal(mock.submissions.length, 0);
     releaseSession();
@@ -219,7 +240,7 @@ export async function verifyRankingClientResilience(browser, baseUrl) {
     await page.waitForFunction(() => document.querySelector('#ranking-submission-status').textContent.includes('成绩已记录'));
     assert.equal(mock.sessions, 1);
     assert.deepEqual(errors, []);
-  } finally { await context.close(); }
+  } finally { releaseSession(); await context.close(); }
 
   const progressive = await browser.newContext();
   await progressive.addInitScript(() => {
@@ -227,6 +248,9 @@ export async function verifyRankingClientResilience(browser, baseUrl) {
     localStorage.setItem('lunar_beacon_ranking_first_defeat_v1', '1');
   });
   const progressiveMock = await installRankingMock(progressive);
+  progressiveMock.scoreCaptureDelay = 2000;
+  const scoreSeen = createSignal();
+  progressiveMock.onScore = scoreSeen.resolve;
   let releaseScore;
   progressiveMock.scoreGate = new Promise(resolve => { releaseScore = resolve; });
   const progressivePage = await progressive.newPage();
@@ -237,13 +261,14 @@ export async function verifyRankingClientResilience(browser, baseUrl) {
       const game = window.__LUNAR_BEACON_GAME__;
       game.launchStage('endless', false); game.debugAddGold(5000);
       game.selectPadOrTower('ex_pad_01'); game.previewOrBuildTower('autocannon', true);
-      game.upgradeSelectedTower(); game.upgradeSelectedTower(); game.selectPadOrTower(null);
+      game.selectPadOrTower(null);
       game.startNextWave(); game.debugStepSimulation(.05, false);
       const id = game.getEndlessRunResult().runId;
       window.dispatchEvent(new Event('pagehide'));
       return id;
     });
-    for (let i = 0; i < 100 && progressiveMock.submissions.length < 1; i++) await progressivePage.waitForTimeout(10);
+    await waitForSignal(scoreSeen, 'the first score request');
+    progressiveMock.scoreCaptureDelay = 0;
     assert.equal(progressiveMock.submissions.length, 1);
     const improved = await progressivePage.evaluate(() => {
       const game = window.__LUNAR_BEACON_GAME__;
@@ -264,7 +289,7 @@ export async function verifyRankingClientResilience(browser, baseUrl) {
     await progressivePage.click('#stage-node-stage_01');
     await progressivePage.click('#btn-launch-stage');
     await progressivePage.waitForFunction(() => !localStorage.getItem('lunar_beacon_ranking_pending_v1:tdk:endless'));
-  } finally { await progressive.close(); }
+  } finally { releaseScore(); await progressive.close(); }
 
   const blocked = await browser.newContext();
   await blocked.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Blocked', 'SecurityError'); } }));
