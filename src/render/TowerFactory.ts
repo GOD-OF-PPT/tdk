@@ -138,9 +138,20 @@ export function createTowerRig(type: TowerType, initialTier: TowerTier = 1): Tow
 
   // Stepped bevel ring (creates real physical seam gap above plinth)
   const turntableRing = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.82, 0.1, 12), darkJointMat);
-  turntableRing.position.y = 0.28; turntableRing.castShadow = true; baseGroup.add(turntableRing);
-  const slewGearRing = createGearMesh(0.82, 0.055, 16, darkJointMat); slewGearRing.rotation.x = Math.PI / 2; slewGearRing.position.y = 0.255; baseGroup.add(slewGearRing);
-  for (let c = 0; c < 4; c++) { const ca = (c * Math.PI) / 2 + Math.PI / 4; const cell = new THREE.Mesh(new RoundedBoxGeometry(0.14, 0.08, 0.18, 2, 0.02), tierTrimMat); cell.position.set(Math.cos(ca) * 0.88, 0.2, Math.sin(ca) * 0.88); cell.rotation.y = -ca; baseGroup.add(cell); }
+  turntableRing.position.y = 0.28;
+  turntableRing.castShadow = true;
+  baseGroup.add(turntableRing);
+  const slewGearRing = createGearMesh(0.82, 0.055, 16, darkJointMat);
+  slewGearRing.rotation.x = Math.PI / 2;
+  slewGearRing.position.y = 0.255;
+  baseGroup.add(slewGearRing);
+  for (let c = 0; c < 4; c++) {
+    const ca = (c * Math.PI) / 2 + Math.PI / 4;
+    const cell = new THREE.Mesh(new RoundedBoxGeometry(0.14, 0.08, 0.18, 2, 0.02), tierTrimMat);
+    cell.position.set(Math.cos(ca) * 0.88, 0.2, Math.sin(ca) * 0.88);
+    cell.rotation.y = -ca;
+    baseGroup.add(cell);
+  }
 
   // Tier-colored front nameplate plaque on base
   const nameplate = new THREE.Mesh(new RoundedBoxGeometry(0.54, 0.11, 0.12, 2, 0.025), tierTrimMat);
@@ -245,8 +256,13 @@ export function createTowerRig(type: TowerType, initialTier: TowerTier = 1): Tow
     turretYaw.add(coreGem);
     idleCore = tagIdleCore(coreGem);
 
-    const sightFrame = new THREE.Mesh(new RoundedBoxGeometry(0.24, 0.16, 0.22, 2, 0.025), deepBlueMat); sightFrame.position.set(0, 0.34, 0.12); weaponPitch.add(sightFrame);
-    const sightLens = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.09), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, side: THREE.DoubleSide, depthWrite: false })); sightLens.position.set(0, 0.35, 0.235); sightLens.layers.set(1); weaponPitch.add(sightLens);
+    const sightFrame = new THREE.Mesh(new RoundedBoxGeometry(0.24, 0.16, 0.22, 2, 0.025), deepBlueMat);
+    sightFrame.position.set(0, 0.34, 0.12);
+    weaponPitch.add(sightFrame);
+    const sightLens = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.09), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, side: THREE.DoubleSide, depthWrite: false }));
+    sightLens.position.set(0, 0.35, 0.235);
+    sightLens.layers.set(1);
+    weaponPitch.add(sightLens);
     // Starter side ammo boxes & rear cooling radiator fins
     for (const sx of [-1, 1]) {
       const ammoBox = new THREE.Mesh(new RoundedBoxGeometry(0.24, 0.3, 0.48, 2, 0.04), deepBlueMat);
@@ -254,8 +270,13 @@ export function createTowerRig(type: TowerType, initialTier: TowerTier = 1): Tow
       ammoBox.castShadow = true;
       turretYaw.add(ammoBox);
 
-      const ammoHazard = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.12, 0.28, 2, 0.015), hazardMat); ammoHazard.position.set(sx * 0.77, 0.38, -0.02); turretYaw.add(ammoHazard);
-      const feedChute = new THREE.Mesh(new RoundedBoxGeometry(0.18, 0.1, 0.26, 2, 0.02), hazardMat); feedChute.position.set(sx * 0.48, 0.48, 0.08); feedChute.rotation.z = -sx * 0.32; turretYaw.add(feedChute);
+      const ammoHazard = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.12, 0.28, 2, 0.015), hazardMat);
+      ammoHazard.position.set(sx * 0.77, 0.38, -0.02);
+      turretYaw.add(ammoHazard);
+      const feedChute = new THREE.Mesh(new RoundedBoxGeometry(0.18, 0.1, 0.26, 2, 0.02), hazardMat);
+      feedChute.position.set(sx * 0.48, 0.48, 0.08);
+      feedChute.rotation.z = -sx * 0.32;
+      turretYaw.add(feedChute);
     }
 
     // Rear cooling radiator grilles
@@ -281,9 +302,19 @@ export function createTowerRig(type: TowerType, initialTier: TowerTier = 1): Tow
       bGrp.add(tube);
 
       // Orange-amber muzzle brake (weapon signature color stays constant!)
-      for (const rz of [0.18, 0.32, 0.46]) { const coolRing = new THREE.Mesh(new THREE.TorusGeometry(0.102, 0.018, 6, 12), creamMat); coolRing.position.z = rz; bGrp.add(coolRing); }
-      const gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.48, 6), rivetMat); gasTube.rotation.x = Math.PI / 2; gasTube.position.set(0, 0.095, 0.34); bGrp.add(gasTube);
-      const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.118, 0.105, 0.17, 10), weaponAccentMat); brake.rotation.x = Math.PI / 2; brake.position.z = 0.64; bGrp.add(brake);
+      for (const rz of [0.18, 0.32, 0.46]) {
+        const coolRing = new THREE.Mesh(new THREE.TorusGeometry(0.102, 0.018, 6, 12), creamMat);
+        coolRing.position.z = rz;
+        bGrp.add(coolRing);
+      }
+      const gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.48, 6), rivetMat);
+      gasTube.rotation.x = Math.PI / 2;
+      gasTube.position.set(0, 0.095, 0.34);
+      bGrp.add(gasTube);
+      const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.118, 0.105, 0.17, 10), weaponAccentMat);
+      brake.rotation.x = Math.PI / 2;
+      brake.position.z = 0.64;
+      bGrp.add(brake);
 
       const muzzle = new THREE.Object3D();
       muzzle.position.set(0, 0, 0.76);
@@ -713,10 +744,26 @@ export function createTowerRig(type: TowerType, initialTier: TowerTier = 1): Tow
     mainBarrel.castShadow = true;
     tubeGrp.add(mainBarrel);
 
-    for (const sx of [-0.34, 0.34]) { const shockCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.064, 0.56, 8), darkJointMat); shockCyl.rotation.x = Math.PI / 2; shockCyl.position.set(sx, -0.08, 0.24); tubeGrp.add(shockCyl); const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.36, 8), rivetMat); piston.rotation.x = Math.PI / 2; piston.position.set(sx, -0.08, 0.56); tubeGrp.add(piston); }
-    const accelCoil = new THREE.Mesh(new THREE.TorusGeometry(0.315, 0.026, 8, 18), weaponAccentMat); accelCoil.position.z = 0.42; tubeGrp.add(accelCoil);
-    const optPod = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.16, 0.28, 2, 0.03), creamMat); optPod.position.set(0.66, 0.5, 0.14); turretYaw.add(optPod);
-    const optLens = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 10), weaponAccentMat); optLens.rotation.x = Math.PI / 2; optLens.position.set(0.66, 0.5, 0.29); turretYaw.add(optLens);
+    for (const sx of [-0.34, 0.34]) {
+      const shockCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.064, 0.56, 8), darkJointMat);
+      shockCyl.rotation.x = Math.PI / 2;
+      shockCyl.position.set(sx, -0.08, 0.24);
+      tubeGrp.add(shockCyl);
+      const piston = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.36, 8), rivetMat);
+      piston.rotation.x = Math.PI / 2;
+      piston.position.set(sx, -0.08, 0.56);
+      tubeGrp.add(piston);
+    }
+    const accelCoil = new THREE.Mesh(new THREE.TorusGeometry(0.315, 0.026, 8, 18), weaponAccentMat);
+    accelCoil.position.z = 0.42;
+    tubeGrp.add(accelCoil);
+    const optPod = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.16, 0.28, 2, 0.03), creamMat);
+    optPod.position.set(0.66, 0.5, 0.14);
+    turretYaw.add(optPod);
+    const optLens = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 10), weaponAccentMat);
+    optLens.rotation.x = Math.PI / 2;
+    optLens.position.set(0.66, 0.5, 0.29);
+    turretYaw.add(optLens);
     const boreRing = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.055, 10, 20), weaponAccentMat);
     boreRing.position.z = 0.91;
     tubeGrp.add(boreRing);
@@ -1040,10 +1087,20 @@ export function createTowerRig(type: TowerType, initialTier: TowerTier = 1): Tow
       pylon.add(clampPivot);
       magClamps.push(clampPivot);
 
-      const coilCollar = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.028, 6, 12), weaponAccentMat); coilCollar.rotation.x = Math.PI / 2; coilCollar.position.set(0, 0.52, -0.04); pylon.add(coilCollar);
-      pylon.position.set(Math.cos(ang) * 0.48, 0, Math.sin(ang) * 0.48); pylon.rotation.y = -ang + Math.PI / 2; turretYaw.add(pylon);
-      const capAng = ang + Math.PI / 3; const capCan = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.32, 10), deepBlueMat); capCan.position.set(Math.cos(capAng) * 0.52, 0.2, Math.sin(capAng) * 0.52); turretYaw.add(capCan);
-      const capGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.12, 8), weaponAccentMat); capGlow.position.set(Math.cos(capAng) * 0.52, 0.39, Math.sin(capAng) * 0.52); turretYaw.add(capGlow);
+      const coilCollar = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.028, 6, 12), weaponAccentMat);
+      coilCollar.rotation.x = Math.PI / 2;
+      coilCollar.position.set(0, 0.52, -0.04);
+      pylon.add(coilCollar);
+      pylon.position.set(Math.cos(ang) * 0.48, 0, Math.sin(ang) * 0.48);
+      pylon.rotation.y = -ang + Math.PI / 2;
+      turretYaw.add(pylon);
+      const capAng = ang + Math.PI / 3;
+      const capCan = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.32, 10), deepBlueMat);
+      capCan.position.set(Math.cos(capAng) * 0.52, 0.2, Math.sin(capAng) * 0.52);
+      turretYaw.add(capCan);
+      const capGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.12, 8), weaponAccentMat);
+      capGlow.position.set(Math.cos(capAng) * 0.52, 0.39, Math.sin(capAng) * 0.52);
+      turretYaw.add(capGlow);
     }
 
     // Primary rotating purple magnetic ring (mounted inside weaponPitch at y = 1.15!)

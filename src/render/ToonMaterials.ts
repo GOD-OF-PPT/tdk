@@ -237,15 +237,39 @@ function makeShadowBlobTexture(): THREE.CanvasTexture {
 }
 
 function makeRangeDiscTexture(): THREE.CanvasTexture {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 512; const ctx = c.getContext('2d')!;
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext('2d')!;
   const g = ctx.createRadialGradient(256, 256, 24, 256, 256, 248);
-  g.addColorStop(0, 'rgba(255,255,255,0.02)'); g.addColorStop(0.72, 'rgba(255,255,255,0.06)'); g.addColorStop(0.95, 'rgba(255,255,255,0.24)'); g.addColorStop(0.98, 'rgba(255,255,255,0.96)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
-  ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.34)'; ctx.lineWidth = 2.4; ctx.setLineDash([14, 10]); ctx.beginPath(); ctx.arc(256, 256, 186, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  g.addColorStop(0, 'rgba(255,255,255,0.02)');
+  g.addColorStop(0.72, 'rgba(255,255,255,0.06)');
+  g.addColorStop(0.95, 'rgba(255,255,255,0.24)');
+  g.addColorStop(0.98, 'rgba(255,255,255,0.96)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 512, 512);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.34)';
+  ctx.lineWidth = 2.4;
+  ctx.setLineDash([14, 10]);
+  ctx.beginPath();
+  ctx.arc(256, 256, 186, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
   ctx.strokeStyle = 'rgba(255,255,255,0.68)';
-  for (let i = 0; i < 36; i++) { const a = (i * Math.PI * 2) / 36, r0 = i % 9 === 0 ? 222 : 234; ctx.lineWidth = i % 9 === 0 ? 3.4 : 1.8; ctx.beginPath(); ctx.moveTo(256 + Math.cos(a) * r0, 256 + Math.sin(a) * r0); ctx.lineTo(256 + Math.cos(a) * 245, 256 + Math.sin(a) * 245); ctx.stroke(); }
+  for (let i = 0; i < 36; i++) {
+    const a = (i * Math.PI * 2) / 36;
+    const r0 = i % 9 === 0 ? 222 : 234;
+    ctx.lineWidth = i % 9 === 0 ? 3.4 : 1.8;
+    ctx.beginPath();
+    ctx.moveTo(256 + Math.cos(a) * r0, 256 + Math.sin(a) * r0);
+    ctx.lineTo(256 + Math.cos(a) * 245, 256 + Math.sin(a) * 245);
+    ctx.stroke();
+  }
   return new THREE.CanvasTexture(c);
 }
+
 export function getToonTextures(): SharedToonTextures {
   if (!cachedTextures) {
     cachedTextures = {

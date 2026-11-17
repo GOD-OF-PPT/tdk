@@ -26,7 +26,13 @@ import type {
   TowerType,
   UISnapshot,
 } from '../types';
-const PRIORITY_LABELS: Record<TargetPriority, string> = { first: '🎯最前', strongest: '🛡高血', weakest: '⚡残血', shielded: '💠破盾' };
+
+const PRIORITY_LABELS: Record<TargetPriority, string> = {
+  first: '🎯最前',
+  strongest: '🛡高血',
+  weakest: '⚡残血',
+  shielded: '💠破盾',
+};
 
 type CodexSubTab = 'towers' | 'enemies' | 'mechanisms' | 'badges';
 
@@ -245,16 +251,37 @@ export class UIManager {
     }
 
     const k = ev.key.toLowerCase();
-    if (k === '1' || k === 'q') this.engine.activateCommanderSkill('orbital_strike');
-    else if (k === '2' || k === 'w') this.engine.activateCommanderSkill('emp_overdrive');
-    else if (k === '3' || k === 'e') this.engine.activateCommanderSkill('nano_repair');
-    else if (ev.code === 'Space') { ev.preventDefault(); const snap = this.engine.getSnapshot(); if (snap.mode === 'playing') { if (!snap.waveInProgress) this.engine.startNextWave(); else this.engine.toggleSpeed(); } }
-    else if (k === 't') this.engine.cycleSelectedTowerPriority();
-    else if (k === 'u') this.engine.upgradeSelectedTower('A');
-    else if (k === 'b' && this.engine.getSnapshot().selectedTower?.tier === 3) this.engine.upgradeSelectedTower('B');
-    else if (k === 'x') this.engine.sellSelectedTower();
-    else if (k === 'p') this.engine.togglePause();
-    else if (k === 'h') { if (this.hubOpen) this.closeHub(); else this.openHub('campaign'); }
+    if (k === '1' || k === 'q') {
+      this.engine.activateCommanderSkill('orbital_strike');
+    } else if (k === '2' || k === 'w') {
+      this.engine.activateCommanderSkill('emp_overdrive');
+    } else if (k === '3' || k === 'e') {
+      this.engine.activateCommanderSkill('nano_repair');
+    } else if (ev.code === 'Space') {
+      ev.preventDefault();
+      const snap = this.engine.getSnapshot();
+      if (snap.mode === 'playing' && !snap.waveInProgress) {
+        this.engine.startNextWave();
+      } else if (snap.mode === 'playing') {
+        this.engine.toggleSpeed();
+      }
+    } else if (k === 't') {
+      this.engine.cycleSelectedTowerPriority();
+    } else if (k === 'u') {
+      this.engine.upgradeSelectedTower('A');
+    } else if (k === 'b') {
+      const snap = this.engine.getSnapshot();
+      if (snap.selectedTower?.tier === 3) {
+        this.engine.upgradeSelectedTower('B');
+      }
+    } else if (k === 'x') {
+      this.engine.sellSelectedTower();
+    } else if (k === 'p') {
+      this.engine.togglePause();
+    } else if (k === 'h') {
+      if (this.hubOpen) this.closeHub();
+      else this.openHub('campaign');
+    }
   };
 
   private handleGlobalContextMenu = (ev: MouseEvent): void => {
@@ -438,8 +465,12 @@ export class UIManager {
     chip.style.borderColor = accentHex;
     chip.style.color = accentHex;
     chip.textContent = comboCount > 1 ? `${text} ×${comboCount}` : text;
-    while (this.comboFloatLayer.children.length >= 16) this.comboFloatLayer.firstElementChild?.remove();
-    if (text.startsWith('-') || text.startsWith('💥-')) chip.classList.add('dmg-num-tag');
+    while (this.comboFloatLayer.children.length >= 16) {
+      this.comboFloatLayer.firstElementChild?.remove();
+    }
+    if (text.startsWith('-') || text.startsWith('💥-')) {
+      chip.classList.add('dmg-num-tag');
+    }
     this.comboFloatLayer.appendChild(chip);
 
     window.setTimeout(() => {
@@ -619,7 +650,8 @@ export class UIManager {
 
     // 5. Start Next Wave Button (remains visible when selectedPadId !== null!)
     if (snap.mode === 'playing' && !snap.waveInProgress) {
-      const nextBtnSig = `wave_${snap.stageId}_${snap.waveNumber}_${snap.isEndless ? 'inf' : snap.totalWaves}_${snap.nextWaveIntel?.summary ?? ''}`;
+      const intelSummary = snap.nextWaveIntel?.summary ?? '';
+      const nextBtnSig = `wave_${snap.stageId}_${snap.waveNumber}_${snap.isEndless ? 'inf' : snap.totalWaves}_${intelSummary}`;
       if (this.nextWaveWrap.dataset.sig !== nextBtnSig) {
         this.nextWaveWrap.dataset.sig = nextBtnSig;
         const label =
@@ -628,9 +660,21 @@ export class UIManager {
             : snap.isEndless
               ? `▶ 开始下一波 (W${snap.waveNumber}·∞)`
               : `▶ 开始下一波 (${snap.waveNumber}/${snap.totalWaves})`;
-        const intel = snap.nextWaveIntel, tagsH = intel ? intel.tags.map((tg) => `<em class="wave-intel-tag">${tg}</em>`).join('') : '';
-        const intelH = intel ? `<div class="wave-intel-bar ${intel.hasBoss ? 'boss-warn' : ''}" id="wave-intel-bar"><span class="wave-intel-text">📡 下波：${intel.summary}</span>${tagsH}</div>` : '';
-        this.nextWaveWrap.innerHTML = `<div class="next-wave-pack">${intelH}<button class="enamel-cta-btn wave-start" id="btn-start-wave" type="button" title="快捷键 [Space] 开始波次">${label}</button></div>`;
+        const intel = snap.nextWaveIntel;
+        const intelTagsHtml = intel && intel.tags.length > 0
+          ? intel.tags.map((tg) => `<em class="wave-intel-tag">${tg}</em>`).join('')
+          : '';
+        const intelHtml = intel
+          ? `<div class="wave-intel-bar ${intel.hasBoss ? 'boss-warn' : ''}" id="wave-intel-bar" title="下一波来袭敌械情报（快捷键 Space 出击）"><span class="wave-intel-text">📡 下波：${intel.summary}</span>${intelTagsHtml}</div>`
+          : '';
+        this.nextWaveWrap.innerHTML = `
+          <div class="next-wave-pack">
+            ${intelHtml}
+            <button class="enamel-cta-btn wave-start" id="btn-start-wave" type="button" title="快捷键 [Space] 开始波次">
+              ${label}
+            </button>
+          </div>
+        `;
         this.nextWaveWrap
           .querySelector('#btn-start-wave')!
           .addEventListener('click', () => this.engine.startNextWave());
@@ -786,7 +830,10 @@ export class UIManager {
       const brAffordKey = brOpts
         ? `${brOpts[0].affordable ? 1 : 0}${brOpts[1].affordable ? 1 : 0}_${brOpts[0].cost}_${brOpts[1].cost}`
         : 'none';
-      const prioKey = tw.targetPriority ?? 'first', kCount = tw.kills ?? 0, dTotal = tw.totalDamage ?? 0, dCompact = dTotal >= 1000 ? `${(dTotal / 1000).toFixed(1)}k` : String(dTotal);
+      const prioKey = tw.targetPriority ?? 'first';
+      const kCount = tw.kills ?? 0;
+      const dTotal = tw.totalDamage ?? 0;
+      const dCompact = dTotal >= 1000 ? `${(dTotal / 1000).toFixed(1)}k` : String(dTotal);
       const sig = `inspect:${tw.id}:t${tw.tier}:br${tw.branch ?? '0'}:pr${prioKey}:k${kCount}:d${Math.floor(dTotal / 25)}:dmg${tw.damage}:rng${tw.range.toFixed(1)}:hg${Boolean(tw.isHighGround)}:afford${canAffordUpgrade}:cost${tw.upgradeCost}:brAf${brAffordKey}:stun${tw.isStunned}:od${Boolean(tw.overdriven)}:au${Boolean(tw.auraBoosted)}`;
       if (this.lastTraySig === sig) return;
       this.lastTraySig = sig;
@@ -810,10 +857,10 @@ export class UIManager {
                 ${tw.auraBoosted ? `<span class="aura-chip">◈矩阵</span>` : ''}
                 ${tw.isStunned ? `<span class="stun-chip">停机</span>` : ''}
               </div>
-              <div class="sheet-head-actions">
-                <span class="tower-record-chip">⚔${kCount} · 💥${dCompact}</span>
-                ${tw.type !== 'magnetic' ? `<button class="prio-cycle-btn" id="btn-target-priority" type="button" title="切换索敌 [T]">${PRIORITY_LABELS[prioKey]}</button>` : ''}
-                <button class="enamel-sell-btn compact-sell-pill" id="btn-sell-tower" type="button">
+            <div class="sheet-head-actions">
+              <span class="tower-record-chip" title="本塔累计战绩">⚔${kCount} · 💥${dCompact}</span>
+              ${tw.type !== 'magnetic' ? `<button class="prio-cycle-btn" id="btn-target-priority" type="button" title="切换索敌策略 [T]">${PRIORITY_LABELS[prioKey]}</button>` : ''}
+              <button class="enamel-sell-btn compact-sell-pill" id="btn-sell-tower" type="button">
                   <span>出售</span><strong>+${tw.sellRefund}</strong>
                 </button>
                 <button class="sheet-close-btn" id="btn-close-sheet" type="button" aria-label="关闭面板">✕</button>
@@ -867,9 +914,14 @@ export class UIManager {
         this.trayHost
           .querySelector('#btn-close-sheet')!
           .addEventListener('click', () => this.engine.selectPadOrTower(null));
-        this.trayHost.querySelector('#btn-sell-tower')!.addEventListener('click', () => this.engine.sellSelectedTower());
-        this.trayHost.querySelector('#btn-target-priority')?.addEventListener('click', () => this.engine.cycleSelectedTowerPriority());
-        this.trayHost.querySelector('#btn-upgrade-tower')!
+        this.trayHost
+          .querySelector('#btn-sell-tower')!
+          .addEventListener('click', () => this.engine.sellSelectedTower());
+        this.trayHost
+          .querySelector('#btn-target-priority')
+          ?.addEventListener('click', () => this.engine.cycleSelectedTowerPriority());
+        this.trayHost
+          .querySelector('#btn-upgrade-tower')!
           .addEventListener('click', () => this.engine.upgradeSelectedTower('A'));
         this.trayHost
           .querySelector('#btn-upgrade-tower-b')!
@@ -936,7 +988,11 @@ export class UIManager {
               ${tw.auraBoosted ? `<span class="aura-chip">◈矩阵+15%攻速</span>` : ''}
               ${tw.isStunned ? `<span class="stun-chip">震荡停机中</span>` : ''}
             </div>
-            <div class="sheet-head-actions"><span class="tower-record-chip">击杀 ${kCount} · 总伤 ${dCompact}</span>${tw.type !== 'magnetic' ? `<button class="prio-cycle-btn" id="btn-target-priority" type="button" title="切换索敌 [T]">${PRIORITY_LABELS[prioKey]}</button>` : ''}<button class="sheet-close-btn" id="btn-close-sheet" type="button" aria-label="关闭面板">✕</button></div>
+            <div class="sheet-head-actions">
+              <span class="tower-record-chip" title="本塔累计击杀与总伤害">击杀 ${kCount} · 总伤 ${dCompact}</span>
+              ${tw.type !== 'magnetic' ? `<button class="prio-cycle-btn" id="btn-target-priority" type="button" title="切换索敌策略 [快捷键 T]">${PRIORITY_LABELS[prioKey]}</button>` : ''}
+              <button class="sheet-close-btn" id="btn-close-sheet" type="button" aria-label="关闭面板">✕</button>
+            </div>
           </div>
 
           <div class="inspector-grid">
@@ -979,7 +1035,9 @@ export class UIManager {
         .querySelector('#btn-sell-tower')!
         .addEventListener('click', () => this.engine.sellSelectedTower());
 
-      this.trayHost.querySelector('#btn-target-priority')?.addEventListener('click', () => this.engine.cycleSelectedTowerPriority());
+      this.trayHost
+        .querySelector('#btn-target-priority')
+        ?.addEventListener('click', () => this.engine.cycleSelectedTowerPriority());
       const upBtn = this.trayHost.querySelector('#btn-upgrade-tower');
       if (upBtn) {
         upBtn.addEventListener('click', () => {
