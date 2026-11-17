@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
+import { verifyEndlessAutoBattle } from './endless-auto-battle.mjs';
 
 const BASE_URL = process.env.GAME_URL || 'http://127.0.0.1:5173';
 const SHOT_DIR = process.env.SHOT_DIR || '/tmp/lunar_shots';
@@ -412,6 +413,11 @@ async function runSuite() {
     assert.equal(snap.mode, 'playing', 'Retry from Defeat should cleanly restart');
     console.log('✓ Balance rule (1 tower cannot solo, Wave 1 fair) & Defeat retry verified');
 
+    await verifyEndlessAutoBattle(page, {
+      screenshotPath: path.join(SHOT_DIR, '14_endless_auto_battle_desktop.png'),
+    });
+    console.log('✓ Endless auto battle: consecutive waves, manual stop, pause, hub, defeat, retry and stage reset verified');
+
     await desktopCtx.close();
 
     // ==================== 2. MOBILE PORTRAIT (390x844) TOUCH & FRAMING VERIFICATION ====================
@@ -462,6 +468,12 @@ async function runSuite() {
     await mPage.evaluate(() => window.__LUNAR_BEACON_GAME__.debugStepSimulation(3.5, true));
     await mPage.screenshot({ path: path.join(SHOT_DIR, '13_mobile_portrait_combat.png') });
     console.log('✓ Mobile Portrait 390x844 framing (Entrance + Road + Beacon) & touch gameplay verified');
+
+    await verifyEndlessAutoBattle(mPage, {
+      mobile: true,
+      screenshotPath: path.join(SHOT_DIR, '15_endless_auto_battle_mobile.png'),
+    });
+    console.log('✓ Mobile endless auto battle touch control and viewport verified');
 
     await mobileCtx.close();
 

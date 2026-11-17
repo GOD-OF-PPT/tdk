@@ -550,6 +550,7 @@ export interface UISnapshot {
   waveNumber: number;
   totalWaves: number;
   waveInProgress: boolean;
+  autoBattleEnabled: boolean;
   kills: number;
   speedMultiplier: 1 | 2;
   muted: boolean;

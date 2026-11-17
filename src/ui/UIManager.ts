@@ -260,6 +260,7 @@ export class UIManager {
     if (!this.engine || ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey) return;
     const tag = (ev.target as HTMLElement | null)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (ev.code === 'Space' && tag === 'BUTTON') return;
 
     if (ev.key === 'Escape') {
       if (this.bgmPopoverOpen) {
@@ -704,11 +705,15 @@ export class UIManager {
     // 4. Commander Tactical Skills Dock & Energy Readout (in-place update without innerHTML replacement!)
     this.renderCommanderSkills(snap);
 
-    // 5. Start Next Wave Button (remains visible when selectedPadId !== null!)
-    if (snap.mode === 'playing' && !snap.waveInProgress) {
+    // 5. Wave controls; keep the endless toggle reachable during combat and reveals.
+    const showStartWave = snap.mode === 'playing' && !snap.waveInProgress;
+    const showAutoBattle = snap.isEndless &&
+      ['playing', 'paused', 'boss_intro', 'legendary_reveal'].includes(snap.mode);
+    if (showStartWave || showAutoBattle) {
       const intelSummary = snap.nextWaveIntel?.summary ?? '';
-      const nextBtnSig = `wave_${snap.stageId}_${snap.waveNumber}_${snap.isEndless ? 'inf' : snap.totalWaves}_${intelSummary}`;
+      const nextBtnSig = `wave_${snap.stageId}_${snap.waveNumber}_${snap.isEndless ? 'inf' : snap.totalWaves}_${showStartWave}_${snap.autoBattleEnabled}_${intelSummary}`;
       if (this.nextWaveWrap.dataset.sig !== nextBtnSig) {
+        const restoreAutoFocus = this.nextWaveWrap.querySelector('#btn-auto-battle') === document.activeElement;
         this.nextWaveWrap.dataset.sig = nextBtnSig;
         const label =
           snap.waveNumber === 1
@@ -720,20 +725,35 @@ export class UIManager {
         const intelTagsHtml = intel && intel.tags.length > 0
           ? intel.tags.map((tg) => `<em class="wave-intel-tag">${tg}</em>`).join('')
           : '';
-        const intelHtml = intel
+        const intelHtml = showStartWave && intel
           ? `<div class="wave-intel-bar ${intel.hasBoss ? 'boss-warn' : ''}" id="wave-intel-bar" title="下一波来袭敌械情报（快捷键 Space 出击）"><span class="wave-intel-text">📡 下波：${intel.summary}</span>${intelTagsHtml}</div>`
           : '';
         this.nextWaveWrap.innerHTML = `
-          <div class="next-wave-pack">
+          <div class="next-wave-pack ${showAutoBattle ? 'endless-wave-controls' : ''}">
             ${intelHtml}
-            <button class="enamel-cta-btn wave-start" id="btn-start-wave" type="button" title="快捷键 [Space] 开始波次">
-              ${label}
-            </button>
+            ${showAutoBattle ? `
+              <button class="enamel-cta-btn auto-battle-btn" id="btn-auto-battle" type="button"
+                aria-pressed="${snap.autoBattleEnabled}"
+                title="自动开始下一波；关闭后本波继续，结束后等待手动开始">
+                自动战斗：${snap.autoBattleEnabled ? '开' : '关'}
+              </button>
+            ` : ''}
+            ${showStartWave ? `
+              <button class="enamel-cta-btn wave-start" id="btn-start-wave" type="button" title="快捷键 [Space] 开始波次">
+                ${label}
+              </button>
+            ` : ''}
           </div>
         `;
         this.nextWaveWrap
-          .querySelector('#btn-start-wave')!
-          .addEventListener('click', () => this.engine.startNextWave());
+          .querySelector('#btn-start-wave')
+          ?.addEventListener('click', () => this.engine.startNextWave());
+        this.nextWaveWrap
+          .querySelector('#btn-auto-battle')
+          ?.addEventListener('click', () => this.engine.toggleAutoBattle());
+        if (restoreAutoFocus) {
+          this.nextWaveWrap.querySelector<HTMLButtonElement>('#btn-auto-battle')?.focus({ preventScroll: true });
+        }
       }
     } else if (this.nextWaveWrap.innerHTML !== '') {
       this.nextWaveWrap.dataset.sig = '';

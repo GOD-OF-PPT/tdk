@@ -148,6 +148,7 @@ export class GameEngine {
   private kills = 0;
   private waveIndex = 0; // 0-based index
   private waveInProgress = false;
+  private autoBattleEnabled = false;
   private waveElapsed = 0;
   private endlessActiveWaveConfig: WaveConfig | null = null;
   private pendingSpawns: PendingSpawn[] = [];
@@ -613,6 +614,7 @@ export class GameEngine {
     this.kills = 0;
     this.waveIndex = 0;
     this.waveInProgress = false;
+    this.autoBattleEnabled = false;
     this.waveElapsed = 0;
     this.endlessActiveWaveConfig = null;
     this.pendingSpawns = [];
@@ -1278,7 +1280,20 @@ export class GameEngine {
     return this.currentStage.waves[this.waveIndex] ?? null;
   }
 
+  public toggleAutoBattle(): boolean {
+    if (
+      !this.isEndlessMode() ||
+      !['playing', 'paused', 'boss_intro', 'legendary_reveal'].includes(this.mode)
+    ) return false;
+
+    this.autoBattleEnabled = !this.autoBattleEnabled;
+    this.audio.playUiClick();
+    this.emitSnapshot();
+    return this.autoBattleEnabled;
+  }
+
   public startNextWave(): boolean {
+    if (this.overlayPaused) return false;
     if (this.mode === 'opening') {
       this.cinematics.cancelAll();
       for (const m of this.env.beacon.statusLampMats) m.emissiveIntensity = 1.8;
@@ -1478,6 +1493,9 @@ export class GameEngine {
     this.updateAmbientStationLife(rawDt);
 
     if (this.mode === 'playing') {
+      if (this.autoBattleEnabled && this.isEndlessMode() && !this.waveInProgress) {
+        this.startNextWave();
+      }
       let activeScale = this.simTimeScale;
       if (this.hitStopTimer > 0) {
         this.hitStopTimer = Math.max(0, this.hitStopTimer - rawDt);
@@ -2251,6 +2269,7 @@ export class GameEngine {
           this.progression.recordWaveReached(this.currentStageId, this.waveIndex + 1);
           this.mode = 'defeat';
           this.waveInProgress = false;
+          this.autoBattleEnabled = false;
           this.armedSkillId = null;
           this.pendingOrbitalStrikes = [];
           this.pendingRocketSalvos = [];
@@ -3695,6 +3714,7 @@ export class GameEngine {
       waveNumber,
       totalWaves,
       waveInProgress: this.waveInProgress,
+      autoBattleEnabled: this.autoBattleEnabled,
       kills: this.kills,
       speedMultiplier: this.speedMultiplier,
       muted: this.audio.isMuted(),
