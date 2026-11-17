@@ -42,6 +42,10 @@ export type TechUpgradeId =
   | 'tactical_reactor'
   | 'flux_resonator';
 
+export type TechLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+export type ApexTechId = 'apex_firepower' | 'apex_bounty' | 'apex_bastion';
+
 export type AchievementId =
   | 'ach_ch1_clear'
   | 'ach_flawless_3star'
@@ -51,7 +55,10 @@ export type AchievementId =
   | 'ach_mech_15'
   | 'ach_all_sectors'
   | 'ach_10_stars'
-  | 'ach_endless_15';
+  | 'ach_endless_15'
+  | 'ach_endless_40'
+  | 'ach_endless_70'
+  | 'ach_overclock_10';
 
 export type GameMode =
   | 'opening'
@@ -315,6 +322,7 @@ export interface TowerRig {
   };
   tierAccentMaterials: THREE.MeshToonMaterial[];
   coreMaterial: THREE.MeshStandardMaterial;
+  overclockHalo?: THREE.Group | null;
 }
 
 export interface TowerInstance {
@@ -324,6 +332,7 @@ export interface TowerInstance {
   tier: TowerTier;
   isHighGround?: boolean;
   branch?: TowerBranch | null;
+  overclockLevel?: number;
   targetPriority?: TargetPriority;
   overdriveTimer?: number;
   auraHasteBonus?: number;
@@ -493,13 +502,15 @@ export interface CampaignSaveDataV2 {
   unlockAllSandbox: boolean;
   activeStageId: StageId;
   stages: Record<StageId, StageSaveEntry>;
-  techLevels: Record<TechUpgradeId, 0 | 1 | 2 | 3 | 4>;
+  techLevels: Record<TechUpgradeId, TechLevel>;
+  apexLevels?: Record<ApexTechId, number>;
   seenCodexIds: string[];
   counters: {
     synergyTriggers: number;
     skillsUsed: number;
     mechanismsUsed: number;
     dualBranchCleared: boolean;
+    maxOverclockReached?: number;
   };
   claimedAchievementIds: string[];
 }
@@ -508,8 +519,17 @@ export interface TechModuleConfig {
   id: TechUpgradeId;
   name: string;
   summary: string;
-  costs: [number, number, number, number];
-  levelDescriptions: [string, string, string, string, string];
+  costs: readonly number[];
+  levelDescriptions: readonly string[];
+}
+
+export interface ApexTechConfig {
+  id: ApexTechId;
+  name: string;
+  summary: string;
+  baseCost: number;
+  costStep: number;
+  formatEffect: (lv: number) => string;
 }
 
 export interface AchievementConfig {
@@ -526,7 +546,8 @@ export interface ProgressionSnapshot {
   bestEndlessWave: number;
   unlockAllSandbox: boolean;
   stages: Record<StageId, StageSaveEntry>;
-  techLevels: Record<TechUpgradeId, 0 | 1 | 2 | 3 | 4>;
+  techLevels: Record<TechUpgradeId, TechLevel>;
+  apexLevels: Record<ApexTechId, number>;
   seenCodexIds: string[];
   claimedAchievementIds: string[];
   counters: CampaignSaveDataV2['counters'];
@@ -571,6 +592,10 @@ export interface UISnapshot {
   armedSkillId: CommanderSkillId | null;
   skills: CommanderSkillSnapshot[];
   activeComboCount: number;
+  runArsenalLevel?: number;
+  runCrystalProtocolLevel?: number;
+  nextArsenalCost?: number;
+  crystalProtocolCost?: number;
   nextWaveIntel?: { summary: string; tags: string[]; hasBoss: boolean; hasElite: boolean } | null;
   mvpTowerSummary?: string | null;
   selectedTowerBranchOptions: [T4BranchOptionSnapshot, T4BranchOptionSnapshot] | null;
@@ -609,6 +634,11 @@ export interface UISnapshot {
     targetPriority?: TargetPriority;
     kills?: number;
     totalDamage?: number;
+    overclockLevel?: number;
+    overclockCost?: number | null;
+    nextOverclockDamage?: number | null;
+    maxBulkOverclockCount?: number;
+    bulkOverclockCost?: number;
     t4BranchOptions?: [T4BranchOptionSnapshot, T4BranchOptionSnapshot] | null;
   } | null;
   bossStatus: {

@@ -186,6 +186,8 @@ export class GameEngine {
     sourceTower: TowerInstance | null;
   }> = [];
   private activeComboCount = 0;
+  private runArsenalLevel = 0;
+  private runCrystalProtocolLevel = 0;
   private comboResetTimer = 0;
   private combatSimElapsed = 0;
   private lastComboCalloutByLabel = new Map<string, number>();
@@ -601,6 +603,8 @@ export class GameEngine {
     this.pendingRocketSalvos = [];
     this.plasmaZones = [];
     this.activeComboCount = 0;
+    this.runArsenalLevel = 0;
+    this.runCrystalProtocolLevel = 0;
     this.comboResetTimer = 0;
     this.combatSimElapsed = 0;
     this.lastComboCalloutByLabel.clear();
@@ -727,11 +731,26 @@ export class GameEngine {
     this.emitSnapshot();
   }
 
+  private getRunGlobalDamageMultiplier(): number {
+    return (1 + this.runArsenalLevel * 0.12) * (1 + this.runCrystalProtocolLevel * 0.15);
+  }
+
+  public getNextArsenalCost(): number {
+    return 360 + this.runArsenalLevel * 140;
+  }
+
+  public computeOverclockStepCost(currentOverclockLv: number): number {
+    const tech = this.progression.getComputedTechModifiers();
+    const raw = 220 + currentOverclockLv * 75 + currentOverclockLv * currentOverclockLv * 12;
+    return Math.max(80, Math.round(raw * (1 - tech.t4CostDiscount)));
+  }
+
   private computeTowerStatsForTier(
     type: TowerType,
     tier: TowerTier,
     isHighGround: boolean,
-    branch: TowerBranch = 'A'
+    branch: TowerBranch = 'A',
+    overclockLevel = 0
   ): {
     damage: number;
     fireInterval: number;
@@ -750,14 +769,28 @@ export class GameEngine {
     const hgRng = isHighGround ? HIGH_GROUND_RANGE_MULT : 1.0;
     const costDiscount = tier === 4 ? tech.t4CostDiscount : 0;
 
+    const oc = tier === 4 ? Math.max(0, overclockLevel) : 0;
+    const ocDmgMult = oc > 0 ? Math.pow(1.145, oc) : 1.0;
+    const ocRateMult = oc > 0 ? 1 + Math.min(0.7, oc * 0.035) : 1.0;
+    const ocRangeAdd = oc > 0 ? Math.min(1.6, oc * 0.08) : 0;
+    const ocSplashAdd = oc > 0 && base.splashRadius > 0 ? Math.min(0.85, oc * 0.04) : 0;
+    const ocSlowAdd = oc > 0 && base.slowRatio > 0 ? Math.min(0.18, oc * 0.012) : 0;
+    const ocPierceAdd = oc * 0.012;
+    const runMult = this.getRunGlobalDamageMultiplier();
+
     return {
-      damage: Math.round(base.damage * hgDmg * tech.damageMultiplier),
-      fireInterval: Number((base.fireInterval / tech.fireRateMultiplier).toFixed(3)),
-      range: Number((base.range * hgRng * tech.rangeMultiplier).toFixed(2)),
-      splashRadius: base.splashRadius,
-      slowRatio: base.slowRatio,
+      damage: Math.max(
+        1,
+        Math.round(base.damage * hgDmg * tech.damageMultiplier * ocDmgMult * runMult)
+      ),
+      fireInterval: Number(
+        Math.max(0.065, base.fireInterval / (tech.fireRateMultiplier * ocRateMult)).toFixed(3)
+      ),
+      range: Number((base.range * hgRng * tech.rangeMultiplier + ocRangeAdd).toFixed(2)),
+      splashRadius: Number((base.splashRadius + ocSplashAdd).toFixed(2)),
+      slowRatio: Math.min(0.78, Number((base.slowRatio + ocSlowAdd).toFixed(2))),
       slowDuration: base.slowDuration,
-      armorPierce: base.armorPierce,
+      armorPierce: Math.min(0.95, base.armorPierce + tech.bonusArmorPierce + ocPierceAdd),
       cost: Math.max(10, Math.round(base.cost * (1 - costDiscount))),
       partHeadline: base.partHeadline,
     };
@@ -832,6 +865,7 @@ export class GameEngine {
       upgradingTimer: 0.45,
       rig,
       worldPos: new THREE.Vector3(padCfg.x, padSurfaceY, padCfg.z),
+      overclockLevel: 0,
       kills: 0,
       totalDamage: 0,
     };
@@ -849,10 +883,162 @@ export class GameEngine {
     return true;
   }
 
+  private syncTowerOverclockVisuals(tower: TowerInstance): void {
+    const lv = tower.overclockLevel ?? 0;
+    const halo = tower.rig.overclockHalo;
+    if (!halo) return;
+    halo.visible = tower.tier === 4 && lv >= 1;
+    if (!halo.visible) return;
+    const inner = halo.children[0] as THREE.Mesh | undefined;
+    const outer = halo.children[1] as THREE.Mesh | undefined;
+    if (inner) {
+      const mat = inner.material as THREE.MeshBasicMaterial;
+      mat.color.setHex(lv >= 10 ? 0xe879f9 : lv >= 5 ? 0xfbbf24 : 0x38bdf8);
+    }
+    if (outer) {
+      outer.visible = lv >= 5;
+      const mat = outer.material as THREE.MeshBasicMaterial;
+      mat.color.setHex(lv >= 10 ? 0x38bdf8 : 0xfb7185);
+    }
+    tower.rig.coreMaterial.emissiveIntensity = Math.min(3.2, 1.35 + lv * 0.12);
+  }
+
+  public overclockSelectedTower(maxSteps = 1): number {
+    if (this.mode !== 'playing' || !this.selectedPadId) return 0;
+    const tower = this.towers.get(this.selectedPadId);
+    if (!tower || tower.tier < 4) return 0;
+
+    this.audio.unlock();
+    const isHG = Boolean(tower.isHighGround);
+    const br = tower.branch ?? 'A';
+    const startLv = tower.overclockLevel ?? 0;
+    const beforeStats = this.computeTowerStatsForTier(tower.type, 4, isHG, br, startLv);
+
+    const firstCost = this.computeOverclockStepCost(startLv);
+    if (this.gold < firstCost) {
+      this.audio.playInsufficientGold();
+      this.callbacks.onInsufficientGold(firstCost - this.gold);
+      return 0;
+    }
+
+    let stepsDone = 0;
+    const cap = Math.max(1, Math.min(10, maxSteps));
+    while (stepsDone < cap) {
+      const curLv = (tower.overclockLevel ?? 0);
+      const stepCost = this.computeOverclockStepCost(curLv);
+      if (this.gold < stepCost) break;
+      this.gold -= stepCost;
+      tower.totalInvestedGold += stepCost;
+      tower.overclockLevel = curLv + 1;
+      stepsDone++;
+    }
+
+    if (stepsDone <= 0) return 0;
+    const newLv = tower.overclockLevel ?? 0;
+    this.progression.recordMaxOverclock(newLv);
+    this.syncTowerOverclockVisuals(tower);
+    tower.upgradingTimer = 0.28;
+    tower.flapCloseTimer = 0.35;
+    this.openTowerHingedFlaps(tower);
+
+    const afterStats = this.computeTowerStatsForTier(tower.type, 4, isHG, br, newLv);
+    this.audio.playTierIgnite(3);
+    this.vfx.spawnGroundRing(
+      new THREE.Vector3(tower.worldPos.x, 0.095, tower.worldPos.z),
+      newLv >= 10 ? 0xe879f9 : 0x38bdf8,
+      0.45,
+      3.1,
+      0.38
+    );
+    const deltas: StatDeltaPopup[] = [
+      { label: '伤害', deltaText: `▲+${afterStats.damage - beforeStats.damage}` },
+    ];
+    if (afterStats.range > beforeStats.range) {
+      deltas.push({ label: '射程', deltaText: `▲+${(afterStats.range - beforeStats.range).toFixed(2)}m` });
+    }
+    this.callbacks.onUpgradeStamp(`⚡超频 +${newLv}`, '#38BDF8', deltas, false);
+    this.syncSelectionRings();
+    this.emitSnapshot();
+    return stepsDone;
+  }
+
+  public activateArsenalBoost(): boolean {
+    if (this.mode !== 'playing' || this.overlayPaused) return false;
+    this.audio.unlock();
+    const cost = this.getNextArsenalCost();
+    if (this.gold < cost) {
+      this.audio.playInsufficientGold();
+      this.callbacks.onInsufficientGold(cost - this.gold);
+      return false;
+    }
+    this.gold -= cost;
+    this.runArsenalLevel++;
+    for (const tw of this.towers.values()) {
+      tw.overdriveTimer = Math.max(tw.overdriveTimer ?? 0, 4.5);
+      tw.flapCloseTimer = 0.35;
+      this.openTowerHingedFlaps(tw);
+    }
+    this.audio.playTierIgnite(3);
+    this.vfx.spawnClimaxBurst(this.env.beacon.group.position, 0xfbbf24, 0.85, false);
+    const pt = this.getBeaconScreenCoordinates();
+    this.callbacks.onComboCallout?.(
+      pt.x,
+      pt.y - 24,
+      `💰全军增幅 Lv.${this.runArsenalLevel} (+12%伤害)`,
+      '#FBBF24',
+      1
+    );
+    this.emitSnapshot();
+    return true;
+  }
+
+  public activateCrystalOvercharge(): boolean {
+    if (this.mode !== 'playing' || this.overlayPaused) return false;
+    this.audio.unlock();
+    const crystalCost = 5;
+    if (!this.progression.spendCrystalsInBattle(crystalCost)) {
+      this.audio.playInsufficientGold();
+      this.callbacks.onComboCallout?.(
+        window.innerWidth * 0.5,
+        window.innerHeight * 0.68,
+        `💎 星区储备晶体不足（需 ${crystalCost}💎）`,
+        '#FF5A67',
+        1
+      );
+      return false;
+    }
+    this.runCrystalProtocolLevel++;
+    this.tacticalEnergy = this.maxTacticalEnergy;
+    this.skillCooldowns.orbital_strike = 0;
+    this.skillCooldowns.emp_overdrive = 0;
+    this.skillCooldowns.nano_repair = 0;
+    const healAmt = Math.max(5, Math.round(this.maxBeaconHp * 0.2));
+    this.beaconHp = Math.min(this.maxBeaconHp, this.beaconHp + healAmt);
+    for (const tw of this.towers.values()) {
+      tw.stunTimer = 0;
+      tw.overdriveTimer = Math.max(tw.overdriveTimer ?? 0, 6.0);
+    }
+    this.audio.playEmpOverdrive();
+    this.vfx.spawnBeaconNanoRepair(this.env.beacon.group.position);
+    const pt = this.getBeaconScreenCoordinates();
+    this.callbacks.onComboCallout?.(
+      pt.x,
+      pt.y - 28,
+      `💎晶簇裂变 Lv.${this.runCrystalProtocolLevel} (+15%总伤·满能刷新)`,
+      '#38BDF8',
+      1
+    );
+    this.emitSnapshot();
+    return true;
+  }
+
   public upgradeSelectedTower(branch: TowerBranch = 'A'): boolean {
     if (this.mode !== 'playing' || !this.selectedPadId) return false;
     const tower = this.towers.get(this.selectedPadId);
-    if (!tower || tower.tier >= 4) return false;
+    if (!tower) return false;
+    if (tower.tier >= 4) {
+      return this.overclockSelectedTower(1) > 0;
+    }
 
     const isHG = Boolean(tower.isHighGround);
     const currStats = this.computeTowerStatsForTier(
@@ -1066,7 +1252,8 @@ export class GameEngine {
           );
           // Strip up to 220 shield HP immediately + deal 95 arc damage + apply Magnetic Flux!
           if (e.shieldHp > 0) {
-            e.shieldHp = Math.max(0, e.shieldHp - 220);
+            const shieldShatter = Math.max(220, Math.round(e.maxShieldHp * 0.42));
+            e.shieldHp = Math.max(0, e.shieldHp - shieldShatter);
             if (e.shieldHp === 0) {
               this.vfx.spawnShieldBreak(e.worldPos);
               brokeAnyShield = true;
@@ -1079,7 +1266,12 @@ export class GameEngine {
           e.fluxTimer = Math.max(e.fluxTimer, 4.0);
           e.rig.slowRing.visible = true;
           if (e.rig.fluxRingGroup) e.rig.fluxRingGroup.visible = true;
-          this.applyDamageToEnemy(e, 95, 1.0, null);
+          const pylonTech = this.progression.getComputedTechModifiers();
+          const pylonDmg = Math.round(
+            95 * pylonTech.damageMultiplier * this.getRunGlobalDamageMultiplier() +
+              e.maxHp * (e.isBoss ? 0.028 : 0.065)
+          );
+          this.applyDamageToEnemy(e, pylonDmg, 1.0, null);
         }
       }
       if (brokeAnyShield) {
@@ -1163,7 +1355,9 @@ export class GameEngine {
 
     if (skillId === 'emp_overdrive') {
       this.tacticalEnergy = Math.max(0, this.tacticalEnergy - cfg.energyCost);
-      this.skillCooldowns.emp_overdrive = cfg.cooldownSec;
+      this.skillCooldowns.emp_overdrive = Number(
+        (cfg.cooldownSec * this.progression.getComputedTechModifiers().skillCooldownScale).toFixed(2)
+      );
       if (this.armedSkillId !== null) {
         this.armedSkillId = null;
         this.vfx.setTacticalReticle(false);
@@ -1206,15 +1400,20 @@ export class GameEngine {
 
     if (skillId === 'nano_repair') {
       this.tacticalEnergy = Math.max(0, this.tacticalEnergy - cfg.energyCost);
-      this.skillCooldowns.nano_repair = cfg.cooldownSec;
+      const nanoTech = this.progression.getComputedTechModifiers();
+      this.skillCooldowns.nano_repair = Number(
+        (cfg.cooldownSec * nanoTech.skillCooldownScale).toFixed(2)
+      );
       if (this.armedSkillId !== null) {
         this.armedSkillId = null;
         this.vfx.setTacticalReticle(false);
       }
       this.progression.incrementCounter('skillsUsed', 1);
 
-      this.beaconHp = Math.min(this.maxBeaconHp, this.beaconHp + 4);
-      this.gold += 75;
+      const nanoHeal = Math.max(4, 3 + Math.round(this.maxBeaconHp * 0.14));
+      const nanoGold = Math.round((75 + (this.isEndlessMode() ? this.waveIndex * 12 : 0)) * nanoTech.goldBountyMultiplier);
+      this.beaconHp = Math.min(this.maxBeaconHp, this.beaconHp + nanoHeal);
+      this.gold += nanoGold;
 
       const beaconPos = this.env.beacon.group.position;
       this.vfx.spawnBeaconNanoRepair(beaconPos);
@@ -1247,7 +1446,9 @@ export class GameEngine {
     const cz = THREE.MathUtils.clamp(worldZ, -9.5, 9.5);
 
     this.tacticalEnergy = Math.max(0, this.tacticalEnergy - cfg.energyCost);
-    this.skillCooldowns.orbital_strike = cfg.cooldownSec;
+    this.skillCooldowns.orbital_strike = Number(
+      (cfg.cooldownSec * this.progression.getComputedTechModifiers().skillCooldownScale).toFixed(2)
+    );
     this.armedSkillId = null;
     this.vfx.setTacticalReticle(false);
     this.progression.incrementCounter('skillsUsed', 1);
@@ -1612,7 +1813,11 @@ export class GameEngine {
                 e.slowRatio = Math.max(e.slowRatio, slowAmt);
                 e.slowTimer = Math.max(e.slowTimer, 1.2);
                 e.rig.slowRing.visible = true;
-                this.applyDamageToEnemy(e, 11, 0.7, null);
+                const gateDmg = Math.round(
+                  11 * this.progression.getComputedTechModifiers().damageMultiplier * this.getRunGlobalDamageMultiplier() +
+                    e.maxHp * (e.isBoss ? 0.004 : 0.011)
+                );
+                this.applyDamageToEnemy(e, gateDmg, 0.75, null);
               }
             }
           }
@@ -1897,6 +2102,8 @@ export class GameEngine {
         this.audio.playOrbitalStrike();
         this.cinematics.addCameraShake(0.32);
 
+        const orbTech = this.progression.getComputedTechModifiers();
+        const orbMult = orbTech.damageMultiplier * this.getRunGlobalDamageMultiplier();
         for (const e of [...this.enemies]) {
           if (e.dead || e.hp <= 0) continue;
           const d = Math.hypot(e.worldPos.x - strike.x, e.worldPos.z - strike.z);
@@ -1912,8 +2119,10 @@ export class GameEngine {
               e.skillTelegraphTimer = 0;
               this.vfx.setBossTelegraphZone(false);
             }
-
-            this.applyDamageToEnemy(e, e.isBoss ? 220 : 260, 0.85, null);
+            const orbDmg = Math.round(
+              (e.isBoss ? 240 : 280) * orbMult + e.maxHp * (e.isBoss ? 0.068 : 0.15)
+            );
+            this.applyDamageToEnemy(e, orbDmg, 0.88, null);
           }
         }
       }
@@ -2350,12 +2559,21 @@ export class GameEngine {
 
     for (const tower of this.towers.values()) {
       const activeBranch = tower.branch ?? 'A';
+      const ocLv = tower.overclockLevel ?? 0;
       const stats = this.computeTowerStatsForTier(
         tower.type,
         tower.tier,
         Boolean(tower.isHighGround),
-        activeBranch
+        activeBranch,
+        ocLv
       );
+      if (tower.rig.overclockHalo && tower.rig.overclockHalo.visible) {
+        tower.rig.overclockHalo.rotation.y += dt * (1.8 + Math.min(4.0, ocLv * 0.25));
+        const outer = tower.rig.overclockHalo.children[1];
+        if (outer && outer.visible) {
+          outer.rotation.z -= dt * 2.6;
+        }
+      }
       const rig = tower.rig;
 
       // Pause-safe simDt closing of hinged reload/capacitor flaps!
@@ -2745,7 +2963,11 @@ export class GameEngine {
     if (spawnFusionBurn) {
       const tech = this.progression.getComputedTechModifiers();
       const hgDmg = tower?.isHighGround ? HIGH_GROUND_DAMAGE_MULT : 1.0;
-      const tickDmg = Math.max(8, Math.round(22 * hgDmg * tech.damageMultiplier));
+      const ocMult = tower ? Math.pow(1.145, tower.overclockLevel ?? 0) : 1.0;
+      const tickDmg = Math.max(
+        8,
+        Math.round(22 * hgDmg * tech.damageMultiplier * ocMult * this.getRunGlobalDamageMultiplier())
+      );
       this.vfx.spawnPlasmaBurnZone(ix, iz, 3.0, 3.0);
       this.plasmaZones.push({
         x: ix,
@@ -2977,7 +3199,20 @@ export class GameEngine {
     const shreddedArmor = Math.max(0, enemy.armor - shredFlat);
     const effectiveArmor = Math.max(0, shreddedArmor * (1 - armorPierce));
     const vulnMult = (enemy.vulnTimer ?? 0) > 0 ? (enemy.vulnMultiplier ?? 1.0) : 1.0;
-    const finalDamage = Math.max(2, Math.round(remainingRaw * (1 - effectiveArmor) * vulnMult));
+    const techMods = this.progression.getComputedTechModifiers();
+    const giantBonus =
+      techMods.maxHpBonusRatio > 0 && sourceTower
+        ? Math.round(
+            enemy.maxHp *
+              techMods.maxHpBonusRatio *
+              (enemy.isBoss ? 0.35 : 0.85) *
+              (sourceTower.type === 'autocannon' ? 0.42 : 1.0)
+          )
+        : 0;
+    const finalDamage = Math.max(
+      2,
+      Math.round((remainingRaw + giantBonus) * (1 - effectiveArmor) * vulnMult)
+    );
 
     enemy.hp = Math.max(0, enemy.hp - finalDamage);
     if (sourceTower) {
@@ -3046,7 +3281,7 @@ export class GameEngine {
 
       if (sourceTower) sourceTower.kills++;
       this.kills++;
-      this.gold += enemy.goldReward;
+      this.gold += Math.max(1, Math.round(enemy.goldReward * techMods.goldBountyMultiplier));
       this.addTacticalEnergy(TACTICAL_ENERGY_CONFIG.KILL_ENERGY[enemy.type] ?? 2.0, true);
       if (enemy.crystalReward > 0) {
         this.crystals += enemy.crystalReward;
@@ -3173,9 +3408,16 @@ export class GameEngine {
     if (!cfg) return;
 
     this.waveInProgress = false;
-    this.gold += cfg.clearGoldBonus;
-    this.crystals += cfg.clearCrystalBonus;
-    this.progression.addCrystals(cfg.clearCrystalBonus);
+    const clearTech = this.progression.getComputedTechModifiers();
+    const waveGold =
+      this.isEndlessMode() || clearTech.goldBountyMultiplier > 1.001
+        ? Math.round(cfg.clearGoldBonus * clearTech.goldBountyMultiplier)
+        : cfg.clearGoldBonus;
+    const waveCrystals =
+      cfg.clearCrystalBonus + (this.isEndlessMode() && cfg.hasBoss ? clearTech.extraBossCrystals : 0);
+    this.gold += waveGold;
+    this.crystals += waveCrystals;
+    this.progression.addCrystals(waveCrystals);
     this.addTacticalEnergy(TACTICAL_ENERGY_CONFIG.WAVE_CLEAR_BONUS, true);
 
     const techMods = this.progression.getComputedTechModifiers();
@@ -3317,7 +3559,8 @@ export class GameEngine {
         existing.type,
         existing.tier,
         isHG,
-        existing.branch ?? 'A'
+        existing.branch ?? 'A',
+        existing.overclockLevel ?? 0
       );
       this.env.rangeRing.position.set(pad.x, 0.11, pad.z);
       this.env.rangeRing.scale.setScalar(stats.range);
@@ -3514,7 +3757,8 @@ export class GameEngine {
         const bp = TOWER_BLUEPRINTS[tw.type];
         const isHG = Boolean(tw.isHighGround);
         const activeBr = tw.branch ?? 'A';
-        const curr = this.computeTowerStatsForTier(tw.type, tw.tier, isHG, activeBr);
+        const ocLv = tw.overclockLevel ?? 0;
+        const curr = this.computeTowerStatsForTier(tw.type, tw.tier, isHG, activeBr, ocLv);
         const currMeta = TIER_META[tw.tier];
         const canUpgrade = tw.tier < 4;
         const nextTier = canUpgrade ? ((tw.tier + 1) as TowerTier) : null;
@@ -3568,6 +3812,22 @@ export class GameEngine {
         }
 
         const t4BranchCfg = tw.tier === 4 ? bp.branches[activeBr] : null;
+        const ocNextCost = tw.tier === 4 ? this.computeOverclockStepCost(ocLv) : null;
+        const ocNextStats =
+          tw.tier === 4 ? this.computeTowerStatsForTier(tw.type, 4, isHG, activeBr, ocLv + 1) : null;
+        let maxBulkOc = 0;
+        let bulkOcSum = 0;
+        if (tw.tier === 4) {
+          for (let s = 0; s < 5; s++) {
+            const c = this.computeOverclockStepCost(ocLv + s);
+            if (this.gold >= bulkOcSum + c) {
+              bulkOcSum += c;
+              maxBulkOc++;
+            } else {
+              break;
+            }
+          }
+        }
 
         selectedTower = {
           id: tw.id,
@@ -3603,6 +3863,11 @@ export class GameEngine {
           targetPriority: tw.targetPriority ?? 'first',
           kills: tw.kills,
           totalDamage: tw.totalDamage,
+          overclockLevel: ocLv,
+          overclockCost: ocNextCost,
+          nextOverclockDamage: ocNextStats ? ocNextStats.damage : null,
+          maxBulkOverclockCount: maxBulkOc,
+          bulkOverclockCost: bulkOcSum,
           t4BranchOptions: selectedTowerBranchOptions,
         };
       }
@@ -3735,6 +4000,10 @@ export class GameEngine {
       armedSkillId: this.armedSkillId,
       skills,
       activeComboCount: this.activeComboCount,
+      runArsenalLevel: this.runArsenalLevel,
+      runCrystalProtocolLevel: this.runCrystalProtocolLevel,
+      nextArsenalCost: this.getNextArsenalCost(),
+      crystalProtocolCost: 5,
       selectedTowerBranchOptions,
       progression: this.progression.getSnapshot(),
       selectedTower,

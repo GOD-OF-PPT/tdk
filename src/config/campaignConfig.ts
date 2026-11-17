@@ -880,10 +880,23 @@ export interface EndlessWaveScale {
 
 export function getEndlessScaling(waveNumber: number): EndlessWaveScale {
   const w = Math.max(1, waveNumber);
+  // Smooth 3-phase endless HP curve tuned for Lv.8 Tech + T4 Infinite Overclock + Apex Research (W1 -> W100+)
+  let hpMultiplier = 1;
+  if (w <= 20) {
+    hpMultiplier = Math.pow(1.115, w - 1);
+  } else if (w <= 50) {
+    hpMultiplier = Math.pow(1.115, 19) * Math.pow(1.084, w - 20);
+  } else {
+    hpMultiplier = Math.pow(1.115, 19) * Math.pow(1.084, 30) * Math.pow(1.064, w - 50);
+  }
+  const goldRewardScale =
+    w <= 15
+      ? Math.max(0.48, 1 / (1 + (w - 1) * 0.055))
+      : Number((0.56 + (w - 15) * 0.032).toFixed(3));
   return {
-    hpMultiplier: Math.pow(1.135, w - 1),
-    speedMultiplier: Math.min(1.35, 1 + Math.floor((w - 1) / 5) * 0.04),
-    goldRewardScale: Math.max(0.35, 1 / (1 + (w - 1) * 0.08)),
+    hpMultiplier,
+    speedMultiplier: Math.min(1.42, 1 + Math.floor((w - 1) / 6) * 0.035),
+    goldRewardScale,
   };
 }
 
@@ -983,8 +996,9 @@ export function generateEndlessWave(waveNumber: number, laneCount = 2): WaveConf
     }
   }
 
-  const clearGoldBonus = Math.min(260, 75 + w * 10);
-  const clearCrystalBonus = isBossWave ? 5 : isEliteWave ? 2 : 1;
+  const scale = getEndlessScaling(w);
+  const clearGoldBonus = 80 + w * 18;
+  const clearCrystalBonus = isBossWave ? 5 + Math.floor(w / 20) : isEliteWave ? 2 : 1;
 
   return {
     waveNumber: w,
@@ -992,8 +1006,8 @@ export function generateEndlessWave(waveNumber: number, laneCount = 2): WaveConf
       ? `无尽第 ${w} 波 · 首领【${bossTitle}】降临`
       : `无尽第 ${w} 波 · 超载机械狂潮`,
     subtitle: isBossWave
-      ? `首领强度 ${(Math.pow(1.135, w - 1) * 100).toFixed(0)}%！击败首领赢取 +5 能源晶体补给！`
-      : `敌械生命倍率 ×${Math.pow(1.135, w - 1).toFixed(2)} · 巧用电容塔与激光闸稳固防线`,
+      ? `首领强度 ×${scale.hpMultiplier.toFixed(1)}！击败首领赢取 +${clearCrystalBonus} 能源晶体与超频赏金！`
+      : `敌械生命倍率 ×${scale.hpMultiplier.toFixed(2)} · 善用传说机甲【超频突破】与军工增幅推进战线`,
     clearGoldBonus,
     clearCrystalBonus,
     hasElite: isEliteWave,

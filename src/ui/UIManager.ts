@@ -11,11 +11,15 @@ import {
 import type { GameEngine } from '../game/GameEngine';
 import {
   ACHIEVEMENT_CONFIGS,
+  APEX_MODULES,
+  APEX_ORDER,
+  MAX_CORE_TECH_LEVEL,
   TECH_MODULES,
   TECH_ORDER,
 } from '../game/ProgressionManager';
 import type {
   AchievementId,
+  ApexTechId,
   CommanderSkillId,
   MechanismCodexEntry,
   ProgressionSnapshot,
@@ -139,6 +143,12 @@ function getAchievementProgressText(id: AchievementId, prog: ProgressionSnapshot
       return `${Math.min(10, prog.totalStars)}/10`;
     case 'ach_endless_15':
       return `W${Math.min(15, prog.bestEndlessWave)}/15`;
+    case 'ach_overclock_10':
+      return `+${Math.min(10, prog.counters.maxOverclockReached ?? 0)}/10`;
+    case 'ach_endless_40':
+      return `W${Math.min(40, prog.bestEndlessWave)}/40`;
+    case 'ach_endless_70':
+      return `W${Math.min(70, prog.bestEndlessWave)}/70`;
   }
 }
 
@@ -302,6 +312,10 @@ export class UIManager {
       this.engine.activateCommanderSkill('emp_overdrive');
     } else if (k === '3' || k === 'e') {
       this.engine.activateCommanderSkill('nano_repair');
+    } else if (k === '4') {
+      this.engine.activateArsenalBoost();
+    } else if (k === '5') {
+      this.engine.activateCrystalOvercharge();
     } else if (ev.code === 'Space') {
       ev.preventDefault();
       const snap = this.engine.getSnapshot();
@@ -779,7 +793,8 @@ export class UIManager {
       return;
     }
 
-    const mountKey = snap.skills.map((s) => s.id).join('|');
+    const showSupply = snap.onboardingStep === 'done';
+    const mountKey = `${snap.skills.map((s) => s.id).join('|')}_sup${showSupply ? 1 : 0}`;
     if (this.skillsMountKey !== mountKey) {
       this.skillsMountKey = mountKey;
       const btnsHtml = snap.skills
@@ -822,9 +837,32 @@ export class UIManager {
           <div class="skills-btn-row">
             ${btnsHtml}
           </div>
+          ${
+            showSupply
+              ? `<div class="supply-protocol-pair hide-xs" id="supply-protocol-group">
+                  <button class="supply-dock-btn gold-sup" id="btn-supply-gold" type="button" title="战地军工增幅 [4]：消耗工程金币，全军机甲永久 +12% 伤害并触发 4.5s 超载狂飙">
+                    <span class="skill-key-hint">4</span>
+                    <strong id="lbl-supply-gold">💰军工</strong>
+                    <em id="cost-supply-gold">●360</em>
+                  </button>
+                  <button class="supply-dock-btn crys-sup" id="btn-supply-crystal" type="button" title="晶簇裂变协议 [5]：消耗 5💎 储备能源晶体，全军永久 +15% 伤害 + 满战术能量 + 刷新全部技能冷却 + 修复信标">
+                    <span class="skill-key-hint">5</span>
+                    <strong id="lbl-supply-crys">💎裂变</strong>
+                    <em id="cost-supply-crys">5💎</em>
+                  </button>
+                </div>`
+              : ''
+          }
           <span class="combo-live-pill" id="combo-live-pill" title="跨塔战术连携计数" hidden></span>
         </div>
       `;
+
+      this.skillsSlotHost
+        .querySelector('#btn-supply-gold')
+        ?.addEventListener('click', () => this.engine.activateArsenalBoost());
+      this.skillsSlotHost
+        .querySelector('#btn-supply-crystal')
+        ?.addEventListener('click', () => this.engine.activateCrystalOvercharge());
 
       this.skillsSlotHost.querySelectorAll<HTMLButtonElement>('[data-skill-id]').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -875,6 +913,28 @@ export class UIManager {
       if (costLbl) {
         costLbl.textContent = isArmed ? '瞄准中' : `⚡${sk.energyCost}`;
       }
+    }
+
+    const supGoldBtn = this.skillsSlotHost.querySelector<HTMLButtonElement>('#btn-supply-gold');
+    if (supGoldBtn) {
+      const gCost = snap.nextArsenalCost ?? 360;
+      const gLv = snap.runArsenalLevel ?? 0;
+      const gAfford = snap.gold >= gCost;
+      supGoldBtn.classList.toggle('unready', !gAfford);
+      const lbl = supGoldBtn.querySelector('#lbl-supply-gold');
+      const cst = supGoldBtn.querySelector('#cost-supply-gold');
+      if (lbl) lbl.textContent = gLv > 0 ? `💰军工+${gLv}` : '💰军工';
+      if (cst) cst.textContent = `●${gCost}`;
+    }
+
+    const supCrysBtn = this.skillsSlotHost.querySelector<HTMLButtonElement>('#btn-supply-crystal');
+    if (supCrysBtn) {
+      const cCost = snap.crystalProtocolCost ?? 5;
+      const cLv = snap.runCrystalProtocolLevel ?? 0;
+      const cAfford = snap.persistentCrystals >= cCost;
+      supCrysBtn.classList.toggle('unready', !cAfford);
+      const lbl = supCrysBtn.querySelector('#lbl-supply-crys');
+      if (lbl) lbl.textContent = cLv > 0 ? `💎裂变+${cLv}` : '💎裂变';
     }
 
     const comboPill = this.skillsSlotHost.querySelector<HTMLElement>('#combo-live-pill');
@@ -1021,7 +1081,11 @@ export class UIManager {
       const kCount = tw.kills ?? 0;
       const dTotal = tw.totalDamage ?? 0;
       const dCompact = dTotal >= 1000 ? `${(dTotal / 1000).toFixed(1)}k` : String(dTotal);
-      const sig = `inspect:${tw.id}:t${tw.tier}:br${tw.branch ?? '0'}:pr${prioKey}:k${kCount}:d${Math.floor(dTotal / 25)}:dmg${tw.damage}:rng${tw.range.toFixed(1)}:hg${Boolean(tw.isHighGround)}:afford${canAffordUpgrade}:cost${tw.upgradeCost}:brAf${brAffordKey}:stun${tw.isStunned}:od${Boolean(tw.overdriven)}:au${Boolean(tw.auraBoosted)}`;
+      const ocLv = tw.overclockLevel ?? 0;
+      const ocCost = tw.overclockCost ?? null;
+      const canAffordOc = tw.tier === 4 && ocCost !== null && snap.gold >= ocCost;
+      const bulkOcN = tw.maxBulkOverclockCount ?? 0;
+      const sig = `inspect:${tw.id}:t${tw.tier}:oc${ocLv}:br${tw.branch ?? '0'}:pr${prioKey}:k${kCount}:d${Math.floor(dTotal / 25)}:dmg${tw.damage}:rng${tw.range.toFixed(1)}:hg${Boolean(tw.isHighGround)}:afford${canAffordUpgrade}:ocAf${canAffordOc}:ocBulk${bulkOcN}:cost${tw.upgradeCost}:brAf${brAffordKey}:stun${tw.isStunned}:od${Boolean(tw.overdriven)}:au${Boolean(tw.auraBoosted)}`;
       if (this.lastTraySig === sig) return;
       this.lastTraySig = sig;
 
@@ -1156,11 +1220,38 @@ export class UIManager {
           </button>
         `;
       } else {
-        const resolvedName = tw.branchName || tw.name;
+        const nextOc = ocLv + 1;
+        const costVal = ocCost ?? 220;
+        const dmgGain = Math.max(1, (tw.nextOverclockDamage ?? tw.damage) - tw.damage);
+        const bulkHtml =
+          bulkOcN >= 2
+            ? `<button
+                class="enamel-overclock-bulk-btn"
+                id="btn-overclock-bulk"
+                type="button"
+                title="一键连续超频 +${bulkOcN} 级（共消耗 ${tw.bulkOverclockCost ?? 0} 金币）"
+              >
+                <span>⚡×${bulkOcN}</span>
+                <strong>●${tw.bulkOverclockCost ?? 0}</strong>
+              </button>`
+            : '';
         upgradeActionHtml = `
-          <div class="max-tier-plaque" id="legendary-max-badge">
-            ★ ${tw.branch ? `T4-${tw.branch} ` : ''}传说专精【${resolvedName}】已完全解锁
-          </div>
+          <button
+            class="enamel-upgrade-btn overclock-mode ${canAffordOc ? '' : 'locked'}"
+            id="btn-upgrade-tower"
+            type="button"
+            data-affordable="${canAffordOc ? '1' : '0'}"
+            title="无限超频突破 [快捷键 U]：指数级强化伤害，同步提高攻速、射程与护甲穿透"
+          >
+            <div class="up-btn-top">
+              <span id="legendary-max-badge">⚡ 超频突破 +${nextOc}</span>
+              <span class="cost-badge">● ${costVal}</span>
+            </div>
+            <div class="up-btn-gain">
+              伤害 +${dmgGain} (×1.145) · 攻速/射程/穿甲持续突破
+            </div>
+          </button>
+          ${bulkHtml}
         `;
       }
 
@@ -1168,7 +1259,7 @@ export class UIManager {
         <section class="tactical-sheet ${wasHidden ? 'sheet-enter' : ''}" id="tower-inspector">
           <div class="sheet-head">
             <div class="sheet-title-row">
-              <span class="tier-pill" style="background:${tw.tierHex}; color:#120d22">${tw.branch ? `${tw.tierName}·${tw.branch}` : tw.tierName}</span>
+              <span class="tier-pill" style="background:${tw.tierHex}; color:#120d22">${tw.branch ? `${tw.tierName}·${tw.branch}` : tw.tierName}${ocLv > 0 ? ` +${ocLv}` : ''}</span>
               <strong class="sheet-tower-name">${tw.branchName || tw.name}</strong>
               ${tw.isHighGround ? `<span class="highground-chip">▲高地增程</span>` : ''}
               ${tw.overdriven ? `<span class="overdrive-chip">⚡超载+45%攻速</span>` : ''}
@@ -1229,6 +1320,12 @@ export class UIManager {
       if (upBtn) {
         upBtn.addEventListener('click', () => {
           this.engine.upgradeSelectedTower('A');
+        });
+      }
+      const bulkOcBtn = this.trayHost.querySelector('#btn-overclock-bulk');
+      if (bulkOcBtn) {
+        bulkOcBtn.addEventListener('click', () => {
+          this.engine.overclockSelectedTower(5);
         });
       }
       return;
@@ -1502,13 +1599,16 @@ export class UIManager {
       return `${sid}:${s.unlocked ? 1 : 0}${s.cleared ? 1 : 0}${s.bestStars}_${s.bestWave}`;
     }).join('|');
     const techSig = TECH_ORDER.map((tid) => prog.techLevels[tid]).join('');
-    const countersSig = `${prog.counters.synergyTriggers}_${prog.counters.skillsUsed}_${prog.counters.mechanismsUsed}_${prog.counters.dualBranchCleared ? 1 : 0}`;
-    const hubSig = `${this.hubTab}:${this.codexFilter}:${this.selectedHubStageId}:${snap.stageId}:${prog.totalCrystals}:${prog.spentCrystals}:${prog.unlockAllSandbox ? 1 : 0}:${stagesSig}:${techSig}:${countersSig}:${prog.claimedAchievementIds.length}:${prog.seenCodexIds.length}`;
+    const apexSig = APEX_ORDER.map((aid) => prog.apexLevels?.[aid] ?? 0).join('_');
+    const countersSig = `${prog.counters.synergyTriggers}_${prog.counters.skillsUsed}_${prog.counters.mechanismsUsed}_${prog.counters.dualBranchCleared ? 1 : 0}_${prog.counters.maxOverclockReached ?? 0}`;
+    const hubSig = `${this.hubTab}:${this.codexFilter}:${this.selectedHubStageId}:${snap.stageId}:${prog.totalCrystals}:${prog.spentCrystals}:${prog.unlockAllSandbox ? 1 : 0}:${stagesSig}:${techSig}:${apexSig}:${countersSig}:${prog.claimedAchievementIds.length}:${prog.seenCodexIds.length}`;
 
     if (this.lastHubSig === hubSig) return;
     this.lastHubSig = hubSig;
 
-    const hasAffordableTech = TECH_ORDER.some((tid) => progMgr.canUpgradeTech(tid));
+    const hasAffordableTech =
+      TECH_ORDER.some((tid) => progMgr.canUpgradeTech(tid)) ||
+      APEX_ORDER.some((aid) => progMgr.canUpgradeApex(aid, 1));
     const hasClaimableAch = ACHIEVEMENT_CONFIGS.some(
       (ach) => progMgr.isAchievementUnlocked(ach.id) && !progMgr.isAchievementClaimed(ach.id)
     );
@@ -1755,26 +1855,28 @@ export class UIManager {
 
   private renderHubTechTab(snap: UISnapshot): string {
     const prog = snap.progression;
+    const progMgr = this.engine.getProgression();
     const cards = TECH_ORDER.map((tid) => {
       const mod = TECH_MODULES[tid];
       const lv = prog.techLevels[tid];
-      const nextCost = lv === 4 ? null : mod.costs[lv];
+      const nextCost = lv >= MAX_CORE_TECH_LEVEL ? null : (mod.costs[lv] ?? null);
       const canAfford = nextCost !== null && prog.totalCrystals >= nextCost;
-      const pipsHtml = [0, 1, 2, 3]
-        .map((idx) => `<span class="tech-pip ${idx < lv ? 'lit' : ''}">${idx < lv ? '▮' : '▯'}</span>`)
-        .join('');
+      const pipsHtml = Array.from({ length: MAX_CORE_TECH_LEVEL }, (_, idx) => {
+        const litClass = idx < lv ? (idx >= 4 ? 'lit master-pip' : 'lit') : '';
+        return `<span class="tech-pip ${litClass}">${idx < lv ? '▮' : '▯'}</span>`;
+      }).join('');
       const transitionText =
-        lv < 4
+        lv < MAX_CORE_TECH_LEVEL
           ? `<span class="tech-cur-dim">${mod.levelDescriptions[lv]}</span> <span class="tech-arrow">→</span> <strong>${mod.levelDescriptions[lv + 1]}</strong>`
-          : `<strong>${mod.levelDescriptions[4]}（满级）</strong>`;
+          : `<strong>${mod.levelDescriptions[MAX_CORE_TECH_LEVEL]}（宗师满级）</strong>`;
 
       return `
-        <div class="tech-card">
+        <div class="tech-card ${lv >= 5 ? 'master-tier' : ''}">
           <div class="tech-card-head">
             <strong>${mod.name}</strong>
             <div class="tech-lv-group">
-              <span class="tech-pips" aria-label="等级 ${lv}/4">${pipsHtml}</span>
-              <span class="tech-lv-pill">Lv.${lv}/4</span>
+              <span class="tech-pips" aria-label="等级 ${lv}/${MAX_CORE_TECH_LEVEL}">${pipsHtml}</span>
+              <span class="tech-lv-pill">${lv >= 5 ? '★' : ''}Lv.${lv}/${MAX_CORE_TECH_LEVEL}</span>
             </div>
           </div>
           <div class="tech-summary">${mod.summary}</div>
@@ -1788,10 +1890,51 @@ export class UIManager {
                   type="button"
                   ${canAfford ? '' : 'disabled'}
                 >
-                  升级 Lv.${lv + 1} · 💎 ${nextCost}
+                  ${lv >= 4 ? '宗师突破' : '升级'} Lv.${lv + 1} · 💎 ${nextCost}
                 </button>`
-              : `<div class="tech-max-tag">★ 已满级强化</div>`
+              : `<div class="tech-max-tag">★ 宗师满级 (Lv.8)</div>`
           }
+        </div>
+      `;
+    }).join('');
+
+    const apexCards = APEX_ORDER.map((aid) => {
+      const cfg = APEX_MODULES[aid];
+      const lv = prog.apexLevels?.[aid] ?? 0;
+      const cost1 = progMgr.getApexCost(aid, 1);
+      const cost5 = progMgr.getApexCost(aid, 5);
+      const afford1 = prog.totalCrystals >= cost1;
+      const afford5 = prog.totalCrystals >= cost5;
+      return `
+        <div class="tech-card apex-infinite-card" id="apex-card-${aid}">
+          <div class="tech-card-head">
+            <strong>${cfg.name}</strong>
+            <span class="apex-lv-badge">♾ Lv.${lv}</span>
+          </div>
+          <div class="tech-summary">${cfg.summary}</div>
+          <div class="tech-cur-effect"><strong>${cfg.formatEffect(lv)}</strong></div>
+          <div class="apex-btn-row">
+            <button
+              class="enamel-cta-btn tech-up-btn ${afford1 ? 'primary' : 'secondary'}"
+              id="btn-apex-${aid}-1"
+              data-apex-upgrade="${aid}"
+              data-apex-count="1"
+              type="button"
+              ${afford1 ? '' : 'disabled'}
+            >
+              +1 谐振 · 💎 ${cost1}
+            </button>
+            <button
+              class="enamel-cta-btn tech-up-btn apex-bulk-btn ${afford5 ? 'primary' : 'secondary'}"
+              id="btn-apex-${aid}-5"
+              data-apex-upgrade="${aid}"
+              data-apex-count="5"
+              type="button"
+              ${afford5 ? '' : 'disabled'}
+            >
+              ×5 连升 · 💎 ${cost5}
+            </button>
+          </div>
         </div>
       `;
     }).join('');
@@ -1799,18 +1942,24 @@ export class UIManager {
     return `
       <div class="hub-tech-wrap" id="hub-panel-tech">
         <div class="hub-campaign-toolbar">
-          <span class="hub-stat-chip">已投入能源晶体 <strong>💎 ${prog.spentCrystals}</strong></span>
+          <span class="hub-stat-chip">已投入能源晶体 <strong>💎 ${prog.spentCrystals}</strong> · 战地快捷键 <strong>[4]军工 [5]裂变</strong></span>
           <button
             class="sandbox-unlock-btn"
             id="btn-respec-tech"
             type="button"
             ${prog.spentCrystals > 0 ? '' : 'disabled'}
           >
-            ↺ 重置晶簇（100%免费返还）
+            ↺ 重置全部改装与巅峰晶簇（100%返还）
           </button>
         </div>
         <div class="tech-grid">
           ${cards}
+        </div>
+        <div class="apex-section-divider">
+          <span>♾ 终末方舟 · 无限巅峰晶簇协议（无等级上限 · 突破无尽深层防线）</span>
+        </div>
+        <div class="tech-grid apex-grid">
+          ${apexCards}
         </div>
       </div>
     `;
@@ -2040,6 +2189,21 @@ export class UIManager {
         const progMgr = this.engine.getProgression();
         if (progMgr.upgradeTech(tid)) {
           this.engine.getAudio().playTechUpgrade(progMgr.getTechLevel(tid));
+          this.lastHubSig = '';
+          this.engine.notifyProgressionUpdated();
+        }
+      });
+    });
+
+    this.hubHost.querySelectorAll<HTMLElement>('[data-apex-upgrade]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const aid = btn.dataset.apexUpgrade as ApexTechId | undefined;
+        const cnt = Math.max(1, Number(btn.dataset.apexCount) || 1);
+        if (!aid) return;
+        const progMgr = this.engine.getProgression();
+        const gained = progMgr.upgradeApexTech(aid, cnt);
+        if (gained > 0) {
+          this.engine.getAudio().playTechUpgrade(Math.min(8, progMgr.getApexLevel(aid)));
           this.lastHubSig = '';
           this.engine.notifyProgressionUpdated();
         }

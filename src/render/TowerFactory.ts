@@ -1392,8 +1392,40 @@ export function createTowerRig(type: TowerType, initialTier: TowerTier = 1): Tow
     t4BTurret.add(teslaCrown);
   }
 
+  // V5 3D Overclock Ascension Halo (Layer 1 bloom rings, activated when overclockLevel >= 1)
+  const overclockHalo = new THREE.Group();
+  overclockHalo.position.set(0, 0.22, 0);
+  overclockHalo.visible = false;
+  const ocInnerMat = new THREE.MeshBasicMaterial({
+    color: 0x38bdf8,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.78,
+    depthWrite: false,
+  });
+  const ocInnerRing = new THREE.Mesh(new THREE.RingGeometry(1.06, 1.18, 28), ocInnerMat);
+  ocInnerRing.rotation.x = -Math.PI / 2;
+  ocInnerRing.layers.set(1);
+  overclockHalo.add(ocInnerRing);
+
+  const ocOuterMat = new THREE.MeshBasicMaterial({
+    color: 0xfbbf24,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.72,
+    depthWrite: false,
+  });
+  const ocOuterRing = new THREE.Mesh(new THREE.TorusGeometry(1.24, 0.026, 6, 24), ocOuterMat);
+  ocOuterRing.rotation.x = Math.PI / 2;
+  ocOuterRing.position.y = 0.12;
+  ocOuterRing.visible = false;
+  ocOuterRing.layers.set(1);
+  overclockHalo.add(ocOuterRing);
+  root.add(overclockHalo);
+
   const rig: TowerRig = {
     root,
+    overclockHalo,
     baseGroup,
     turretYaw,
     weaponPitch,
