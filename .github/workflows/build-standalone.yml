@@ -25,6 +25,7 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: node scripts/polish_m3.mjs
+      - run: node scripts/upgrade_v3.mjs
       - run: npx tsc --noEmit
       - run: npm run build
       - name: Run E2E verification
@@ -41,6 +42,6 @@ jobs:
           git add -A
           git add -f starforge_ark_cradle.html dist/starforge_ark_cradle.html
           if [ -n "$(git status --porcelain)" ]; then
-            git commit -m "feat(m3): refine 3D/UI art, pass E2E and bundle starforge_ark_cradle.html [skip ci]"
+            git commit -m "feat(v3): upgrade monster & tower 3D details, impact VFX, targeting priorities & wave intel, and bundle starforge_ark_cradle.html [skip ci]"
             git push origin HEAD:main
           fi
