@@ -2110,6 +2110,7 @@ if (!cssSrc.includes('.apex-infinite-card')) {
 
 .supply-protocol-pair {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 5px;
   padding-left: 7px;
@@ -2118,8 +2119,9 @@ if (!cssSrc.includes('.apex-infinite-card')) {
 
 .supply-dock-btn {
   position: relative;
+  flex: 0 0 auto;
   height: 34px;
-  padding: 2px 8px 2px 16px;
+  padding: 2px 8px 2px 26px;
   border-radius: 10px;
   border: 2px solid #1a1033;
   display: flex;
@@ -2127,8 +2129,16 @@ if (!cssSrc.includes('.apex-infinite-card')) {
   align-items: flex-start;
   justify-content: center;
   line-height: 1.05;
+  white-space: nowrap;
   cursor: pointer;
   color: #f8fafc;
+}
+
+.supply-dock-btn > .skill-key-hint {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .supply-dock-btn.gold-sup {
@@ -2154,6 +2164,12 @@ if (!cssSrc.includes('.apex-infinite-card')) {
   font-size: 10px;
   color: #fde047;
   font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .supply-dock-btn {
+    padding-left: 8px;
+  }
 }
 
 .tech-pip.master-pip {

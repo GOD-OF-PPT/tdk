@@ -1,5 +1,47 @@
 import assert from 'node:assert/strict';
 
+export async function verifySupplyControlsLayout(page) {
+  const layout = await page.evaluate(() => {
+    const bounds = el => {
+      const { left, top, right, bottom, width, height } = el.getBoundingClientRect();
+      return { left, top, right, bottom, width, height };
+    };
+    return {
+      viewport: { width: innerWidth, height: innerHeight },
+      controls: ['#btn-supply-gold', '#btn-supply-crystal'].map(id => {
+        const button = document.querySelector(id);
+        const key = button.querySelector('.skill-key-hint');
+        const name = button.querySelector('strong');
+        const cost = button.querySelector('em');
+        return { id, button: bounds(button), key: bounds(key), name: bounds(name), cost: bounds(cost),
+          nameLineHeight: parseFloat(getComputedStyle(name).lineHeight),
+          costLineHeight: parseFloat(getComputedStyle(cost).lineHeight) };
+      }),
+    };
+  });
+  for (const control of layout.controls) {
+    if (layout.viewport.width <= 640) {
+      assert.equal(control.button.width, 0, 'Compact phone layouts keep the existing hidden supply controls');
+      continue;
+    }
+    assert.ok(control.button.width > 0, `${control.id} is visible`);
+    if (control.key.width > 0) {
+      assert.ok(control.key.right <= control.name.left + .5, `${control.id} shortcut stays to the left of the label`);
+    }
+    assert.ok(control.name.height <= control.nameLineHeight * 1.5, `${control.id} name does not wrap`);
+    assert.ok(control.cost.height <= control.costLineHeight * 1.5, `${control.id} price does not wrap`);
+    for (const child of [control.key, control.name, control.cost].filter(rect => rect.width > 0)) {
+      assert.ok(child.left >= control.button.left && child.right <= control.button.right + .5 &&
+        child.top >= control.button.top && child.bottom <= control.button.bottom + .5,
+      `${control.id} contents stay inside the button`);
+    }
+    assert.ok(control.button.left >= 0 && control.button.right <= layout.viewport.width + .5 &&
+      control.button.top >= 0 && control.button.bottom <= layout.viewport.height + .5,
+    `${control.id} stays inside the viewport`);
+  }
+  return layout;
+}
+
 export async function verifyEndlessAutoBattle(page, { mobile = false, screenshotPath } = {}) {
   const snapshot = () => page.evaluate(() => window.__LUNAR_BEACON_GAME__.getSnapshot());
   const click = selector => mobile ? page.tap(selector) : page.click(selector);
@@ -15,6 +57,7 @@ export async function verifyEndlessAutoBattle(page, { mobile = false, screenshot
   assert.equal(state.autoBattleEnabled, false, 'New endless missions start with auto battle off');
   assert.equal(state.waveInProgress, false);
   assert.equal(await page.locator('#btn-auto-battle').getAttribute('aria-pressed'), 'false');
+  await verifySupplyControlsLayout(page);
 
   if (mobile) {
     for (const selector of ['#btn-auto-battle', '#btn-start-wave']) {
