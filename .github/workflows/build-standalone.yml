@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "starforge_ark_cradle.html"
+      - "index.html"
       - "dist/**"
 
 permissions:
@@ -43,8 +43,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git add -f starforge_ark_cradle.html dist/starforge_ark_cradle.html
+          git add -f index.html dist/index.html
           if [ -n "$(git status --porcelain)" ]; then
-            git commit -m "feat(m3): refine 3D/UI art, pass E2E and bundle starforge_ark_cradle.html [skip ci]"
+            git commit -m "chore(build): refresh standalone index.html [skip ci]"
             git push origin HEAD:main
           fi

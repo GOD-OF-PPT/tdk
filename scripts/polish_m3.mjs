@@ -8,15 +8,15 @@ const edit = (file, marker, fn) => {
   fs.writeFileSync(file, next, 'utf8');
 };
 
-edit('.gitignore', '!dist/starforge_ark_cradle.html', (s) =>
-  s.replace(/^dist$/m, 'dist/*\n!dist/starforge_ark_cradle.html')
+edit('.gitignore', '!dist/index.html', (s) =>
+  s.replace(/^dist$/m, 'dist/*\n!dist/index.html')
 );
 
 edit('scripts/bundle_standalone.mjs', 'rootOutHtml', (s) =>
   s
     .replace(
-      "const distOutHtml = path.join(projectRoot, 'dist/starforge_ark_cradle.html');",
-      "const distOutHtml = path.join(projectRoot, 'dist/starforge_ark_cradle.html');\nconst rootOutHtml = path.join(projectRoot, 'starforge_ark_cradle.html');"
+      "const distOutHtml = path.join(projectRoot, 'dist/index.html');",
+      "const distOutHtml = path.join(projectRoot, 'dist/index.html');\nconst rootOutHtml = path.join(projectRoot, 'index.html');"
     )
     .replace(
       "fs.writeFileSync(distOutHtml, html, 'utf8');",

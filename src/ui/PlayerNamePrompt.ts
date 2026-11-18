@@ -36,7 +36,8 @@ export function promptPlayerName(leaderboard: LeaderboardService): Promise<void>
         input.focus();
       }
     });
-    document.body.append(mask);
+    // The game container owns the theme variables and embedded viewport bounds.
+    document.getElementById('app')!.append(mask);
     input.focus();
   });
 }

@@ -8,13 +8,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const tempOutDir = '/tmp/lunar_iife_dist';
 const pubFavicon = path.join(projectRoot, 'public/favicon.svg');
-const distOutHtml = path.join(projectRoot, 'dist/starforge_ark_cradle.html');
-const rootOutHtml = path.join(projectRoot, 'starforge_ark_cradle.html');
+const distOutHtml = path.join(projectRoot, 'dist/index.html');
+const rootOutHtml = path.join(projectRoot, 'index.html');
 
 const brainDir =
   '/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p/f6fabcef-a753-4205-80c4-c51780e14bd7';
-const artifactOutHtml = path.join(brainDir, 'starforge_ark_cradle.html');
-const artifactMetaPath = path.join(brainDir, 'starforge_ark_cradle.html.metadata.json');
+const artifactOutHtml = path.join(brainDir, 'index.html');
+const artifactMetaPath = path.join(brainDir, 'index.html.metadata.json');
 
 await build({
   root: projectRoot,
@@ -28,6 +28,7 @@ await build({
     cssCodeSplit: false,
     chunkSizeWarningLimit: 1400,
     rollupOptions: {
+      input: path.join(projectRoot, 'dev.html'),
       output: {
         format: 'iife',
         name: 'LunarBeaconBundle',

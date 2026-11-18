@@ -2832,7 +2832,7 @@ button:disabled {
 
 /* Player registration and the online endless leaderboard. */
 .player-name-mask {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 1000;
   display: flex;
@@ -2846,19 +2846,23 @@ button:disabled {
   flex-direction: column;
   gap: 12px;
   width: min(420px, 100%);
-  max-height: calc(100dvh - 32px);
+  max-height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 24px;
   border: 2px solid #38bdf8;
   border-radius: 18px;
-  background: var(--panel-bg);
+  background: var(--deep-blue-dark);
   box-shadow: var(--bevel-plate);
   color: var(--cream-main);
 }
+.player-name-dialog .enamel-cta-btn { flex-shrink: 0; }
 .player-name-dialog h2 { margin: 0; font-size: 23px; }
 .player-name-dialog p { margin: 0; color: #cbd5e1; font-size: 13px; line-height: 1.6; }
 .player-name-dialog label { font-size: 13px; font-weight: 800; }
 .player-name-dialog input {
+  flex-shrink: 0;
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;

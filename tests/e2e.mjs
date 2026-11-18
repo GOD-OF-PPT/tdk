@@ -5,6 +5,7 @@ import { chromium } from 'playwright-core';
 import { verifyEndlessAutoBattle } from './endless-auto-battle.mjs';
 import { completePlayerSetup, installRankingMock, verifyLeaderboard, verifyRankingClientResilience } from './leaderboard.mjs';
 import { verifyHtmlRenderingSecurity } from './html-security.mjs';
+import { verifyPlayerNameDialogUi } from './player-name-ui.mjs';
 
 const BASE_URL = process.env.GAME_URL || 'http://127.0.0.1:5173';
 const SHOT_DIR = process.env.SHOT_DIR || '/tmp/lunar_shots';
@@ -29,6 +30,7 @@ async function runSuite() {
   const pageErrors = [];
 
   try {
+    await verifyPlayerNameDialogUi(browser, BASE_URL, SHOT_DIR);
     await verifyHtmlRenderingSecurity(browser, BASE_URL);
     // ==================== 1. DESKTOP FULL 5-STAGE CLOSED-LOOP VERIFICATION ====================
     const desktopCtx = await browser.newContext({

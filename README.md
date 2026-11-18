@@ -25,11 +25,11 @@
 # 1. 安装项目依赖
 npm install
 
-# 2. 启动本地开发服务器（支持热更新 HMR）
+# 2. 启动本地开发服务器（支持热更新 HMR，开发页面为 /dev.html）
 npm run dev
 
 # 3. 严格类型检查 + 生产构建 + 单文件独立 HTML 打包
-#    同时输出标准静态包 dist/ 与零外部 CDN 依赖的 IIFE 内联单文件 dist/starforge_ark_cradle.html
+#    开发入口 dev.html；完整独立游戏输出为根目录 index.html 和 dist/index.html
 npm run build
 
 # 4. 启动生产预览服务（监听 http://0.0.0.0:5173 / http://localhost:5173）

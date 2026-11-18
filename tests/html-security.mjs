@@ -52,7 +52,7 @@ export async function verifyHtmlRenderingSecurity(browser, baseUrl) {
     // The inline delivery must still boot directly, without a development server.
     await page.close();
     const standalone = await context.newPage();
-    await standalone.goto(pathToFileURL(path.resolve('starforge_ark_cradle.html')).href, { waitUntil: 'domcontentloaded' });
+    await standalone.goto(pathToFileURL(path.resolve('index.html')).href, { waitUntil: 'domcontentloaded' });
     await standalone.waitForFunction(() => window.__LUNAR_BEACON_GAME__?.getSnapshot().mode === 'playing');
     assert.ok(await standalone.locator('#btn-start-wave').isVisible());
   } finally {
